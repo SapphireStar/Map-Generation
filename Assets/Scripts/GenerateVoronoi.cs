@@ -50,21 +50,17 @@ public class GenerateVoronoi : MonoBehaviour
     }
     private void DrawVoronoiDiagram()
     {
-        foreach (var item in sites.Values)
+        List<List<Vector2f>> regions = voronoi.Regions();
+        for (int i = 0; i < regions.Count; i++)
         {
             GameObject go = Instantiate(prefab, transform);
             go.GetComponent<MeshRenderer>().material = material;
-            List<Site> neighborSites = item.NeighborSites();
-
-            List<Vector3> vertices = new List<Vector3>();
-            vertices.Sort();
-            for (int i = 0; i < neighborSites.Count - 1; i++)
+            List<Vector3> list = new List<Vector3>();
+            for (int j = 0; j < regions[i].Count; j++)
             {
-                vertices.Add(new Vector3(neighborSites[i].x, neighborSites[i].y, 0));
+                list.Add(new Vector3(regions[i][j].x, regions[i][j].y, 0));
             }
-            go.GetComponent<MeshFilter>().mesh = CreateMesh(vertices.ToArray());
-            if (vertices.Count > 5)
-                Debug.Log("");
+            go.GetComponent<MeshFilter>().mesh = CreateMesh(list.ToArray());
         }
     }
     
