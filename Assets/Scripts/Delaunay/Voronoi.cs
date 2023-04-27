@@ -46,10 +46,10 @@ namespace csDelaunay {
 			Init(points,plotBounds);
 		}
 
-		public Voronoi(List<Vector2f> points, Rectf plotBounds, int lloydIterations) {
+		public Voronoi(List<Vector2f> points, Rectf plotBounds, int lloydIterations, Dictionary<Vector2f,int> VoronoiMap) {
 			weigthDistributor = new Random();
 			Init(points,plotBounds);
-			LloydRelaxation(lloydIterations);
+			LloydRelaxation(lloydIterations, VoronoiMap);
 		}
 
 		private void Init(List<Vector2f> points, Rectf plotBounds) {
@@ -290,13 +290,13 @@ namespace csDelaunay {
 				e.ClipVertices(plotBounds);
 			}
 			// But we don't actually ever use them again!
-			foreach (Vertex ve in vertices) {
-				ve.Dispose();
-			}
+			//foreach (Vertex ve in vertices) {
+			//	ve.Dispose();
+			//}
 			vertices.Clear();
 		}
 
-		public void LloydRelaxation(int nbIterations) {
+		public void LloydRelaxation(int nbIterations, Dictionary<Vector2f,int> VoronoiCellMap) {
 			// Reapeat the whole process for the number of iterations asked
 			for (int i = 0; i < nbIterations; i++) {
 				List<Vector2f> newPoints = new List<Vector2f>();
@@ -345,7 +345,13 @@ namespace csDelaunay {
 					centroid.y /= (6*signedArea);
 					// Move site to the centroid of its Voronoi cell
 					newPoints.Add(centroid);
+
+					//change dictionary key
+					VoronoiCellMap[centroid] = VoronoiCellMap[site.Coord];
+					VoronoiCellMap.Remove(site.Coord);
+
 					site = sites.Next();
+					
 				}
 
 				// Between each replacement of the cendroid of the cell,

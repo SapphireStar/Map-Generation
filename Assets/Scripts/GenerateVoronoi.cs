@@ -2,19 +2,13 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using csDelaunay;
+using Cysharp.Threading.Tasks;
+using System;
 
 public class GenerateVoronoi : MonoBehaviour
 {
     [SerializeField]
     private int resolutionX;
-    public int ResolutionX 
-    {
-        set
-        {
-            resolutionX = value;
-            InitializeVoronoiDiagram();
-        } 
-    }
     [SerializeField]
     private int resolutionY;
     [SerializeField]
@@ -25,92 +19,160 @@ public class GenerateVoronoi : MonoBehaviour
     private int LloydrelaxationInteration;
 
     [SerializeField]
-    private Material material;
+    private Material land;
+    [SerializeField]
+    private Material water;
+    [SerializeField]
+    private Material ocean;
+    [SerializeField]
+    private Material coast;
+
     [SerializeField]
     private GameObject prefab;
 
 
     Voronoi voronoi;
+    VoronoiCellsWrapper wrapper;
     List<Vector2f> points;
 
-    //Delaunay edge
-    List<Edge> edges;
-
-    //Voronoi Diagram's Voronoi edge
-    List<LineSegment> voronoiDiagram;
-
-    //Voronoi Cell's node point
-    Dictionary<Vector2f,Site> sites;
-    // Start is called before the first frame update
     void Start()
     {
 
+        
         InitializeVoronoiDiagram();
         DrawVoronoiDiagram();
     }
-    private void DrawVoronoiDiagram()
+    private  void DrawVoronoiDiagram()
     {
-        List<List<Vector2f>> regions = voronoi.Regions();
-        for (int i = 0; i < regions.Count; i++)
+        foreach (var center in wrapper.VoronoiCellMap.Keys)
         {
+            var region = voronoi.Region(center);
             GameObject go = Instantiate(prefab, transform);
-            go.GetComponent<MeshRenderer>().material = material;
-            List<Vector3> list = new List<Vector3>();
-            for (int j = 0; j < regions[i].Count; j++)
+            go.GetComponent<VoronoiCell>().Initialize(center, this, land);
+
+            wrapper.VoronoiCellObjectMap[center] = go;
+
+            if (wrapper.VoronoiCellMap[center] == 2)
             {
-                list.Add(new Vector3(regions[i][j].x, regions[i][j].y, 0));
+                go.GetComponent<MeshRenderer>().material = ocean;
+            }
+            else if (wrapper.VoronoiCellMap[center] == 0)
+            {
+                go.GetComponent<MeshRenderer>().material = land;
+            }
+            List<Vector3> list = new List<Vector3>();
+            for (int j = 0; j < region.Count; j++)
+            {
+                list.Add(new Vector3(region[j].x, region[j].y, 0));
             }
             go.GetComponent<MeshFilter>().mesh = CreateMesh(list.ToArray());
+            //await UniTask.Delay(TimeSpan.FromSeconds(0.01f));
         }
+
     }
     
-    private void OnDrawGizmos()
-    {
-        if (edges != null)
-        {
-            //foreach (var item in voronoiDiagram)
-            //{
-            //    Gizmos.DrawLine(new Vector3(item.p0.x, item.p0.y, 0)
-            //                    , new Vector3(item.p1.x, item.p1.y, 0));
-            //}
-            //foreach (var item in edges)
-            //{
-            //    if(item.LeftSite != null)
-            //        Gizmos.DrawSphere(new Vector3(item.LeftSite.x, item.LeftSite.y, 0), 0.05f);
-            //    if(item.RightSite != null)
-            //        Gizmos.DrawSphere(new Vector3(item.RightSite.x, item.RightSite.y, 0), 0.05f);
-
-            //}
-            //foreach (var item in sites.Values)
-            //{
-            //    Gizmos.DrawSphere(new Vector3(item.x, item.y, 0), 0.05f);
-            //    List<Vector2f> region = item.Region(new Rectf(0, 0, width, height));
-            //    for (int i = 0; i < region.Count-1; i++)
-            //    {
-            //        Gizmos.DrawLine(new Vector3(region[i].x, region[i].y, 0)
-            //                        , new Vector3(region[i + 1].x, region[i + 1].y, 0));
-            //    }
-            //}
-        }
-
-    }
     private void InitializeVoronoiDiagram()
     {
+        wrapper = new VoronoiCellsWrapper();
+
         points = new List<Vector2f>();
         for (int i = 0; i < resolutionX; i++)
         {
             for (int j = 0; j < resolutionY; j++)
             {
-                points.Add(new Vector2f(Random.Range(0f, (float)width), Random.Range(0f, (float)height)));
+                Vector2f point = new Vector2f(UnityEngine.Random.Range((float)i * (width / resolutionX), (float)(i + 1) * (width / resolutionX)),
+                                        UnityEngine.Random.Range((float)j * (height / resolutionY), (float)(j + 1) * (height / resolutionY)));
+                points.Add(point);
+
+                wrapper.AddCell(point, 2);
+            }
+        }
+        voronoi = new Voronoi(points, new Rectf(0, 0, width, height),LloydrelaxationInteration, wrapper.VoronoiCellMap);
+        wrapper.SetVoronoi(voronoi);
+        wrapper.RefreshAllCorner();
+    }
+    public void UpdateVoronoiCell(Vector2f pos, int type)
+    {
+        wrapper.VoronoiCellMap[pos] = type;
+        wrapper.VoronoiCellObjectMap[pos].GetComponent<MeshRenderer>().material = type==0?land:ocean;
+        //wrapper.RefreshCorner(pos);
+        RefreshCellState();
+    }
+
+    private void RefreshCellState()
+    {
+        foreach (var center in wrapper.VoronoiCellMap.Keys)
+        {
+            if(wrapper.VoronoiCellMap[center] == 0)
+            {
+                bool isCoast = false;
+                foreach (var item in voronoi.SitesIndexedByLocation[center].NeighborSites())
+                {
+                    if (wrapper.VoronoiCellMap[item.Coord] == 2)
+                    {
+                        Debug.Log("has ocean set it to coast");
+                        isCoast = true;
+                        break;
+                    }
+                }
+                if (isCoast)
+                {
+                    wrapper.VoronoiCellObjectMap[center].GetComponent<MeshRenderer>().material = coast;
+                }
+                else
+                {
+                    wrapper.VoronoiCellObjectMap[center].GetComponent<MeshRenderer>().material = land;
+                }
+            }
+        }
+    }
+    
+    private void OnDrawGizmos()
+    {
+        if (Application.isPlaying&&voronoi.Edges!=null)
+        {
+            foreach (var item in voronoi.Edges)
+            {
+                if (item.LeftVertex != null && item.RightVertex != null)
+                {
+                    var newvertices = ClipLine.ClipSegment(new Rectf(0, 0, width, height), item.LeftVertex.Coord, item.RightVertex.Coord);
+                    if (newvertices != null)
+                    {
+                        item.LeftVertex.Coord = newvertices.Item1;
+                        item.RightVertex.Coord = newvertices.Item2;
+                    }
+                }
+
+                if (item.LeftVertex!=null)
+                {
+                    Gizmos.DrawSphere(new Vector3(item.LeftVertex.x, item.LeftVertex.y, 0), 0.05f);
+                }
+                if (item.RightVertex!=null)
+                {
+                    Gizmos.DrawSphere(new Vector3(item.RightVertex.x, item.RightVertex.y, 0), 0.05f);
+                }
             }
         }
 
-        voronoi = new Voronoi(points, new Rectf(0, 0, width, height),LloydrelaxationInteration);
-        edges = voronoi.Edges;
-        voronoiDiagram = voronoi.VoronoiDiagram();
-        sites = voronoi.SitesIndexedByLocation;
+        //if (wrapper != null)
+        //{
+        //    foreach (var item in wrapper.CornerMap.Values)
+        //    {
+        //        if(item.Type == 0)
+        //        {
+        //            Gizmos.color = Color.red;
+        //            Gizmos.DrawSphere(new Vector3(item.Pos.x, item.Pos.y, 0), 0.1f);
+        //        }
+        //        else
+        //        {
+        //            Gizmos.color = Color.blue;
+        //            Gizmos.DrawSphere(new Vector3(item.Pos.x, item.Pos.y, 0), 0.05f);
+        //        }
+                
+        //    }
+        //}
     }
-    void Update()
+    private void Update()
     {
 
     }
