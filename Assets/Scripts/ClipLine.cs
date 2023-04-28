@@ -20,10 +20,6 @@ public class ClipLine
 
         if (x < r.x) code |= OutCode.Left;
         if (x > r.width ) code |= OutCode.Right;
-        if (y < 0)
-        {
-            Debug.Log("");
-        }
         if (y < r.y) code |= OutCode.Top;
         if (y > r.height) code |= OutCode.Bottom;
 

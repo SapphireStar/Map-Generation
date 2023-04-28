@@ -37,18 +37,14 @@ public class VoronoiCellsWrapper
                 if (leftVertex != null && rightVertex != null)
                 {
                     var newVertices = ClipLine.ClipSegment(bound, leftVertex.Coord, rightVertex.Coord);
-                    if (newVertices != null)
-                    {
-                        leftVertex.Coord = newVertices.Item1;
-                        rightVertex.Coord = newVertices.Item2;
-                    }
-
+                    leftVertex.Coord = newVertices.Item1;
+                    rightVertex.Coord = newVertices.Item2;
                 }
-                if (leftVertex != null&&!CornerMap.ContainsKey(leftVertex.Coord))
+                if (leftVertex != null)
                 {
                     CornerMap[leftVertex.Coord] = new CornerWrapper(leftVertex.Coord, 0);
                 }
-                if (rightVertex != null && !CornerMap.ContainsKey(rightVertex.Coord))
+                if (rightVertex != null)
                 {
                     CornerMap[rightVertex.Coord] = new CornerWrapper(rightVertex.Coord, 0);
                 }

@@ -89,7 +89,7 @@ public class GenerateVoronoi : MonoBehaviour
         }
         voronoi = new Voronoi(points, new Rectf(0, 0, width, height),LloydrelaxationInteration, wrapper.VoronoiCellMap);
         wrapper.SetVoronoi(voronoi);
-        wrapper.RefreshAllCorner(new Rectf(0, 0, width, height));
+        wrapper.RefreshAllCorner();
     }
     public void UpdateVoronoiCell(Vector2f pos, int type)
     {
@@ -129,37 +129,30 @@ public class GenerateVoronoi : MonoBehaviour
     
     private void OnDrawGizmos()
     {
-        if (Application.isPlaying && wrapper.CornerMap != null)
+        if (Application.isPlaying&&voronoi.Edges!=null)
         {
-            foreach (var item in wrapper.CornerMap.Values)
+            foreach (var item in voronoi.Edges)
             {
-                Gizmos.DrawSphere(new Vector3(item.Pos.x, item.Pos.y, 0),0.05f);
+                if (item.LeftVertex != null && item.RightVertex != null)
+                {
+                    var newvertices = ClipLine.ClipSegment(new Rectf(0, 0, width, height), item.LeftVertex.Coord, item.RightVertex.Coord);
+                    if (newvertices != null)
+                    {
+                        item.LeftVertex.Coord = newvertices.Item1;
+                        item.RightVertex.Coord = newvertices.Item2;
+                    }
+                }
+
+                if (item.LeftVertex!=null)
+                {
+                    Gizmos.DrawSphere(new Vector3(item.LeftVertex.x, item.LeftVertex.y, 0), 0.05f);
+                }
+                if (item.RightVertex!=null)
+                {
+                    Gizmos.DrawSphere(new Vector3(item.RightVertex.x, item.RightVertex.y, 0), 0.05f);
+                }
             }
         }
-        //if (Application.isPlaying&&voronoi.Edges!=null)
-        //{
-        //    foreach (var item in voronoi.Edges)
-        //    {
-        //        if (item.LeftVertex != null && item.RightVertex != null)
-        //        {
-        //            var newvertices = ClipLine.ClipSegment(new Rectf(0, 0, width, height), item.LeftVertex.Coord, item.RightVertex.Coord);
-        //            if (newvertices != null)
-        //            {
-        //                item.LeftVertex.Coord = newvertices.Item1;
-        //                item.RightVertex.Coord = newvertices.Item2;
-        //            }
-        //        }
-
-        //        if (item.LeftVertex != null)
-        //        {
-        //            Gizmos.DrawSphere(new Vector3(item.LeftVertex.x, item.LeftVertex.y, 0), 0.05f);
-        //        }
-        //        if (item.RightVertex != null)
-        //        {
-        //            Gizmos.DrawSphere(new Vector3(item.RightVertex.x, item.RightVertex.y, 0), 0.05f);
-        //        }
-        //    }
-        //}
 
         //if (wrapper != null)
         //{
