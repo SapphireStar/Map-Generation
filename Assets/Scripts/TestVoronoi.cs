@@ -74,6 +74,7 @@ public class TestVoronoi : MonoBehaviour
 
         }
         Debug.Log(centersLookup);
+        Debug.Log(corners.Count);
     }
 
     private List<CornerWrapper> CheckDuplicateCorners(CenterWrapper wrapper, List<Vector2f> corners)
@@ -86,6 +87,7 @@ public class TestVoronoi : MonoBehaviour
                 if(Mathf.Abs(item.point.x - corners[i].x) < 1e-6
                 && Mathf.Abs(item.point.y - corners[i].y) < 1e-6)
                 {
+                    //TODO add current center to duplicated old corner
                     result.Add(item);
                     corners.Remove(corners[i]);
                     i--;
