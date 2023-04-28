@@ -1,10 +1,14 @@
-using System.Collections;
+using csDelaunay;
 using System.Collections.Generic;
 using UnityEngine;
-using csDelaunay;
-using Cysharp.Threading.Tasks;
-using System;
 
+public enum CellType
+{
+    Land = 0,
+    Water = 1,
+    Ocean = 2,
+    Coast = 3,
+}
 public class GenerateVoronoi : MonoBehaviour
 {
     [SerializeField]
@@ -34,39 +38,38 @@ public class GenerateVoronoi : MonoBehaviour
     Voronoi voronoi;
     VoronoiCellsWrapper wrapper;
     List<Vector2f> points;
+    List<CenterWrapper> centers;
 
     void Start()
     {
-
-        
-        InitializeVoronoiDiagram();
-        DrawVoronoiDiagram();
+        //centers = new List<CenterWrapper>();
+        //InitializeVoronoiDiagram();
+        //DrawVoronoiDiagram();
     }
     private  void DrawVoronoiDiagram()
     {
-        foreach (var center in wrapper.VoronoiCellMap.Keys)
+        foreach (var center in wrapper.CenterLookup.Values)
         {
-            var region = voronoi.Region(center);
-            GameObject go = Instantiate(prefab, transform);
-            go.GetComponent<VoronoiCell>().Initialize(center, this, land);
+            //var region = center.Corners;
+            //GameObject go = Instantiate(prefab, transform);
+            //go.GetComponent<VoronoiCell>().Initialize(center.Site.Coord, this, land);
 
-            wrapper.VoronoiCellObjectMap[center] = go;
+            //center.gameobject = go;
 
-            if (wrapper.VoronoiCellMap[center] == 2)
-            {
-                go.GetComponent<MeshRenderer>().material = ocean;
-            }
-            else if (wrapper.VoronoiCellMap[center] == 0)
-            {
-                go.GetComponent<MeshRenderer>().material = land;
-            }
-            List<Vector3> list = new List<Vector3>();
-            for (int j = 0; j < region.Count; j++)
-            {
-                list.Add(new Vector3(region[j].x, region[j].y, 0));
-            }
-            go.GetComponent<MeshFilter>().mesh = CreateMesh(list.ToArray());
-            //await UniTask.Delay(TimeSpan.FromSeconds(0.01f));
+            //if (center.Type == 2)
+            //{
+            //    go.GetComponent<MeshRenderer>().material = ocean;
+            //}
+            //else if (center.Type == 0)
+            //{
+            //    go.GetComponent<MeshRenderer>().material = land;
+            //}
+            //List<Vector3> list = new List<Vector3>();
+            //for (int j = 0; j < region.Count; j++)
+            //{
+            //    list.Add(new Vector3(region[j].x, region[j].y, 0));
+            //}
+            //go.GetComponent<MeshFilter>().mesh = CreateMesh(list.ToArray());
         }
 
     }
@@ -87,49 +90,104 @@ public class GenerateVoronoi : MonoBehaviour
                 wrapper.AddCell(point, 2);
             }
         }
-        voronoi = new Voronoi(points, new Rectf(0, 0, width, height),LloydrelaxationInteration, wrapper.VoronoiCellMap);
+        voronoi = new Voronoi(points, new Rectf(0, 0, width, height),LloydrelaxationInteration, wrapper.VoronoiCellMapHelper);
         wrapper.SetVoronoi(voronoi);
-        wrapper.RefreshAllCorner();
+        InitializeCenters();
+        InitializeCorners();
+
     }
+    private void InitializeCenters()
+    {
+        foreach (var item in voronoi.SitesIndexedByLocation.Values)
+        {
+            var center = new CenterWrapper(centers.Count, item.Coord);
+            centers.Add(center);
+            wrapper.CenterLookup[item.Coord] = center;
+        }
+
+
+        //add neighbour centers
+        foreach (var center in centers)
+        {
+            foreach (var site in voronoi.SitesIndexedByLocation[center.Point].NeighborSites())
+            {
+                center.neighbours.Add(wrapper.CenterLookup[site.Coord]);
+            }
+        }
+    }
+    private void InitializeCorners()
+    {
+        //wrapper.RefreshAllCorner(new Rectf(0, 0, width, height), 2);
+        //foreach (var item in voronoi.Edges)
+        //{
+        //    CornerWrapper LeftCorner = null;
+        //    CornerWrapper RightCorner = null;
+        //    if(item.LeftVertex!=null)
+        //        wrapper.CornerMap.TryGetValue(item.LeftVertex.Coord,out LeftCorner);
+        //    if(item.RightVertex!=null)
+        //        wrapper.CornerMap.TryGetValue(item.RightVertex.Coord, out RightCorner);
+
+        //    if (LeftCorner!=null)
+        //    {
+        //        LeftCorner.edges.Add(item);
+        //        if (RightCorner!=null)
+        //        {
+        //            LeftCorner.neighbours.Add(RightCorner);
+        //        }
+        //    }
+        //    if (RightCorner!=null)
+        //    {
+        //        RightCorner.edges.Add(item);
+        //        if (LeftCorner!=null)
+        //        {
+        //            RightCorner.neighbours.Add(LeftCorner);
+        //        }
+        //    }
+        //}
+        //Debug.Log(wrapper.CornerMap);
+    }
+
     public void UpdateVoronoiCell(Vector2f pos, int type)
     {
-        wrapper.VoronoiCellMap[pos] = type;
-        wrapper.VoronoiCellObjectMap[pos].GetComponent<MeshRenderer>().material = type==0?land:ocean;
-        //wrapper.RefreshCorner(pos);
+        //wrapper.CenterLookup[pos].SetType(type);
+        //wrapper.CenterLookup[pos].gameobject.GetComponent<MeshRenderer>().material = type==0?land:ocean;
         RefreshCellState();
     }
 
     private void RefreshCellState()
     {
-        foreach (var center in wrapper.VoronoiCellMap.Keys)
-        {
-            if(wrapper.VoronoiCellMap[center] == 0)
-            {
-                bool isCoast = false;
-                foreach (var item in voronoi.SitesIndexedByLocation[center].NeighborSites())
-                {
-                    if (wrapper.VoronoiCellMap[item.Coord] == 2)
-                    {
-                        Debug.Log("has ocean set it to coast");
-                        isCoast = true;
-                        break;
-                    }
-                }
-                if (isCoast)
-                {
-                    wrapper.VoronoiCellObjectMap[center].GetComponent<MeshRenderer>().material = coast;
-                }
-                else
-                {
-                    wrapper.VoronoiCellObjectMap[center].GetComponent<MeshRenderer>().material = land;
-                }
-            }
-        }
+        //foreach (var center in wrapper.VoronoiCellMapHelper.Keys)
+        //{
+        //    if(wrapper.CenterLookup[center].Type == 0)
+        //    {
+        //        bool isCoast = false;
+        //        foreach (var item in voronoi.SitesIndexedByLocation[center].NeighborSites())
+        //        {
+        //            if (wrapper.CenterLookup[item.Coord].Type == 2)
+        //            {
+        //                Debug.Log("has ocean set it to coast");
+        //                isCoast = true;
+        //                break;
+        //            }
+        //        }
+        //        if (isCoast)
+        //        {
+        //            wrapper.CenterLookup[center].SetType((int)CellType.Coast);
+        //            wrapper.CenterLookup[center].gameobject.GetComponent<MeshRenderer>().material = coast;
+        //        }
+        //        else
+        //        {
+        //            wrapper.CenterLookup[center].SetType((int)CellType.Land);
+        //            wrapper.CenterLookup[center].gameobject.GetComponent<MeshRenderer>().material = land;
+        //        }
+        //    }
+        //}
     }
     
     private void OnDrawGizmos()
     {
-        if (Application.isPlaying&&voronoi.Edges!=null)
+
+        if (Application.isPlaying&&voronoi!=null)
         {
             foreach (var item in voronoi.Edges)
             {

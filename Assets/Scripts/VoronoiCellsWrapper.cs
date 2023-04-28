@@ -7,11 +7,13 @@ public class VoronoiCellsWrapper
 {
     public Voronoi VoronoiDiagram;
     public Dictionary<Vector2f, CornerWrapper> CornerMap;
-    public Dictionary<Vector2f,int> VoronoiCellMap;
+    public Dictionary<Vector2f,int> VoronoiCellMapHelper;
+    public Dictionary<Vector2f, CenterWrapper> CenterLookup;
     public Dictionary<Vector2f, GameObject> VoronoiCellObjectMap;
     public VoronoiCellsWrapper()
     {
-        VoronoiCellMap = new Dictionary<Vector2f, int>();
+        VoronoiCellMapHelper = new Dictionary<Vector2f, int>();
+        CenterLookup = new Dictionary<Vector2f, CenterWrapper>();
         VoronoiCellObjectMap = new Dictionary<Vector2f, GameObject>();
         CornerMap = new Dictionary<Vector2f, CornerWrapper>();
 
@@ -22,33 +24,15 @@ public class VoronoiCellsWrapper
     }
     public void AddCell(Vector2f region, int type)
     {
-        VoronoiCellMap[region] = type;
+        VoronoiCellMapHelper[region] = type;
 
     }
     bool m_initialized = false;
-    public void RefreshCorner(Site site, Rectf bound)
+    public void RefreshCorner(Edge edge, Rectf bound, int type)
     {
         if (!m_initialized)
         {
-            foreach (var item in site.Edges)
-            {
-                var leftVertex = item.LeftVertex;
-                var rightVertex = item.RightVertex;
-                if (leftVertex != null && rightVertex != null)
-                {
-                    var newVertices = ClipLine.ClipSegment(bound, leftVertex.Coord, rightVertex.Coord);
-                    leftVertex.Coord = newVertices.Item1;
-                    rightVertex.Coord = newVertices.Item2;
-                }
-                if (leftVertex != null)
-                {
-                    CornerMap[leftVertex.Coord] = new CornerWrapper(leftVertex.Coord, 0);
-                }
-                if (rightVertex != null)
-                {
-                    CornerMap[rightVertex.Coord] = new CornerWrapper(rightVertex.Coord, 0);
-                }
-            }
+            
         }
         else
         {
@@ -67,37 +51,80 @@ public class VoronoiCellsWrapper
             //}
         }
     }
-    public void RefreshAllCorner(Rectf bound)
+    public void RefreshAllCorner(Rectf bound, int type)
     {
-        foreach (var site in VoronoiDiagram.SitesIndexedByLocation.Values)
+        foreach (var edge in VoronoiDiagram.Edges)
         {
-            RefreshCorner(site,bound);
+            RefreshCorner(edge,bound, type);
         }
         m_initialized = true;
     }
     public void AssignType(Vector2f region, int type)
     {
-        VoronoiCellMap[region] = type;
+        VoronoiCellMapHelper[region] = type;
     }
 }
-public class VoronoiCellWrapper
+public class CenterWrapper
 {
-    public Site Site;
-    public List<Vector2f> Corners;
-    public VoronoiCellWrapper(Site site, List<Vector2f> corners)
+    public int Index;
+
+    public Vector2f Point;
+    public bool Water;
+    public bool Ocean;
+    public bool coast;
+    public bool border;
+    public string biome;
+    public float elevation;
+    public float moisture;
+
+    public List<CenterWrapper> neighbours;
+    public List<EdgeWrapper> borders;
+    public List<CornerWrapper> corners;
+    public CenterWrapper(int index, Vector2f point)
     {
-        this.Site = site;
+        Index = index;
+        this.Point = point;
+        neighbours = new List<CenterWrapper>();
+        borders = new List<EdgeWrapper>();
+        corners = new List<CornerWrapper>();
     }
+}
+public class EdgeWrapper
+{
+    public int index;
+    public CenterWrapper d0;//Delaunay edge
+    public CenterWrapper d1;
+    public CornerWrapper v0;//Voronoi edge
+    public CornerWrapper v1;
+    public Vector2f midpoint;// halfway between v0,v1
+    public int river;// volume of water, or 0
 }
 public class CornerWrapper
 {
+    public int index;
 
-    public Vector2f Pos;
-    public int Type;
-    public List<Site> touches;
-    public CornerWrapper(Vector2f Pos, int type)
+    public Vector2f point;
+    public bool water;
+    public bool ocean;
+    public bool coast;
+    public bool border;
+    public string biome;
+    public float elevation;
+    public float moisture;
+
+    public List<CenterWrapper> touches;
+    public List<EdgeWrapper> edges;
+    public List<CornerWrapper> adjacents;
+
+    public int river;
+    public CornerWrapper downslope;
+    public CornerWrapper watershed;
+    public int watershed_size;
+    public CornerWrapper(Vector2f point)
     {
-        this.Pos = Pos;
-        this.Type = type;
+        this.point = point;
+        touches = new List<CenterWrapper>();
+        edges = new List<EdgeWrapper>();
+        adjacents = new List<CornerWrapper>();
     }
 }

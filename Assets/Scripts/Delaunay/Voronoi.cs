@@ -346,9 +346,13 @@ namespace csDelaunay {
 					// Move site to the centroid of its Voronoi cell
 					newPoints.Add(centroid);
 
-					//change dictionary key
-					VoronoiCellMap[centroid] = VoronoiCellMap[site.Coord];
-					VoronoiCellMap.Remove(site.Coord);
+                    //change dictionary key
+                    if (VoronoiCellMap != null)
+                    {
+                        VoronoiCellMap[centroid] = VoronoiCellMap[site.Coord];
+                        VoronoiCellMap.Remove(site.Coord);
+                    }
+
 
 					site = sites.Next();
 					
