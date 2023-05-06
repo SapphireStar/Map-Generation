@@ -86,7 +86,7 @@ public class CenterWrapper
         borders = new List<EdgeWrapper>();
         corners = new List<CornerWrapper>();
 
-        type |= CellType.Ocean;
+        type |= (CellType.Ocean|CellType.Water);
     }
 }
 public class EdgeWrapper
@@ -98,6 +98,12 @@ public class EdgeWrapper
     public CornerWrapper v1;
     public Vector2f midpoint;// halfway between v0,v1
     public int river;// volume of water, or 0
+
+    public EdgeWrapper(int index, Vector2f midpoint)
+    {
+        this.index = index;
+        this.midpoint = midpoint;
+    }
 }
 public class CornerWrapper
 {
@@ -123,5 +129,7 @@ public class CornerWrapper
         touches = new List<CenterWrapper>();
         edges = new List<EdgeWrapper>();
         adjacents = new List<CornerWrapper>();
+
+        type |= CellType.Ocean;
     }
 }

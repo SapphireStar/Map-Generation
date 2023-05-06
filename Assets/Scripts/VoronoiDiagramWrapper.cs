@@ -5,7 +5,7 @@ using Unity.Collections;
 using Unity.Jobs;
 using UnityEngine;
 
-public class TestVoronoi
+public class VoronoiDiagramWrapper
 {
     
     public int resolutionX;
@@ -16,12 +16,14 @@ public class TestVoronoi
 
     Voronoi voronoi;
     public List<Vector2f> centers;
-    public List<Vector2f> corners = new List<Vector2f>();
+    public List<Vector2f> Corners = new List<Vector2f>();
+    public List<Vector2f> edges = new List<Vector2f>();
 
     public Dictionary<Vector2f, CornerWrapper> CornersLookup = new Dictionary<Vector2f, CornerWrapper>();
-    public Dictionary<Vector2f, CenterWrapper> CentersLookup = new Dictionary<Vector2f, CenterWrapper>(); 
+    public Dictionary<Vector2f, CenterWrapper> CentersLookup = new Dictionary<Vector2f, CenterWrapper>();
+    public Dictionary<Vector2f, EdgeWrapper> EdgesLookup = new Dictionary<Vector2f, EdgeWrapper>();
    
-    public TestVoronoi(int resolutionX, int resolutionY, int width, int height, int lloydIteration)
+    public VoronoiDiagramWrapper(int resolutionX, int resolutionY, int width, int height, int lloydIteration)
     {
         this.resolutionX = resolutionX;
         this.resolutionY = resolutionY;
@@ -32,6 +34,7 @@ public class TestVoronoi
         InitializeVoronoi();
         InitializeCenters();
         InitializeCorners();
+        InitializeEdges();
     }
     private void InitializeVoronoi()
     {
@@ -86,8 +89,8 @@ public class TestVoronoi
                     //and add current centerwrapper to new cornerwrapper's touches
                     CornerWrapper newCorner = CreateCorner(centerCorners[i]);
                     CornersLookup[centerCorners[i]] = newCorner;
-                    newCorner.index = corners.Count;
-                    this.corners.Add(centerCorners[i]);
+                    newCorner.index = Corners.Count;
+                    this.Corners.Add(centerCorners[i]);
                     newCorner.touches.Add(center);
                     center.corners.Add(newCorner);
                 }
@@ -95,12 +98,6 @@ public class TestVoronoi
 
         }
     }
-
-    private void InitializeEdges()
-    {
-
-    }
-
     private bool CheckDuplicateCorners(List<Vector2f> neighbours, CenterWrapper center, Vector2f corner)
     {
         foreach (var neighbourCoord in neighbours)
@@ -128,6 +125,52 @@ public class TestVoronoi
         CornersLookup[point] = wrapper;
         return wrapper;
     }
+    private void InitializeEdges()
+    {
+        foreach (var item in CentersLookup.Values)
+        {
+            for (int i = 0; i < item.corners.Count - 1; i++)
+            {
+                Vector2f curEdgeCenter = new Vector2f((item.corners[i].point.x+item.corners[i].point.y)/2,
+                                                      (item.corners[i+1].point.x + item.corners[i+1].point.y)/2);
+                if (EdgesLookup.ContainsKey(curEdgeCenter))
+                {
+                    EdgesLookup[curEdgeCenter].d1 = item;
+                }
+                else
+                {
+                    EdgeWrapper newEdge = new EdgeWrapper(EdgesLookup.Count, curEdgeCenter);
+                    newEdge.d0 = item;
+                    newEdge.v0 = item.corners[i];
+                    newEdge.v1 = item.corners[i + 1];
+                    EdgesLookup[newEdge.midpoint] = newEdge;
+                }
+                item.borders.Add(EdgesLookup[curEdgeCenter]);
+            }
+            Vector2f lastEdgeCenter = new Vector2f((item.corners[item.corners.Count - 1].point.x + item.corners[item.corners.Count - 1].point.y) / 2,
+                                      (item.corners[0].point.x + item.corners[0].point.y) / 2);
+            if (EdgesLookup.ContainsKey(lastEdgeCenter))
+            {
+                EdgesLookup[lastEdgeCenter].d1 = item;
+            }
+            else
+            {
+                EdgeWrapper newEdge = new EdgeWrapper(EdgesLookup.Count, lastEdgeCenter);
+                newEdge.d0 = item;
+                newEdge.v0 = item.corners[item.corners.Count - 1];
+                newEdge.v1 = item.corners[0];
+                EdgesLookup[newEdge.midpoint] = newEdge;
+            }
+            item.borders.Add(EdgesLookup[lastEdgeCenter]);
+        }
+    }
+
+    private void checkDuplicatedEdges(CenterWrapper center)
+    {
+
+    }
+
+
 
     #region JobSystem
     JobHandle handle;
@@ -155,31 +198,4 @@ public class TestVoronoi
         }
     }
     #endregion
-    /*    private void OnDrawGizmos()
-        {
-            if (corners != null&&Application.isPlaying)
-            {
-                foreach (var item in corners)
-                {
-                    Gizmos.DrawSphere(new Vector3(item.x, item.y, 0), 0.05f);
-                }
-
-                Gizmos.color = Color.red;
-                foreach (var item in centersLookup.Values)
-                {
-                    for (int i = 0; i < item.corners.Count - 1; i++)
-                    {
-                        Gizmos.DrawLine(new Vector3(item.corners[i].point.x, item.corners[i].point.y, 0),
-                                        new Vector3(item.corners[i + 1].point.x, item.corners[i + 1].point.y, 0));
-                    }
-                    if (item.corners.Count > 1)
-                    {
-                        Gizmos.DrawLine(new Vector3(item.corners[0].point.x, item.corners[0].point.y, 0),
-    new Vector3(item.corners[item.corners.Count - 1].point.x, item.corners[item.corners.Count - 1].point.y, 0));
-                    }
-
-                }
-
-            }
-        }*/
 }

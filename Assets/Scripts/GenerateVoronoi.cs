@@ -40,10 +40,10 @@ public class GenerateVoronoi : MonoBehaviour
     List<Vector2f> points;
     List<CenterWrapper> centers;
 
-    TestVoronoi voronoiWrapper;
+    VoronoiDiagramWrapper voronoiWrapper;
     void Start()
     {
-        voronoiWrapper = new TestVoronoi(resolutionX, resolutionY, width, height, LloydrelaxationInteration);
+        voronoiWrapper = new VoronoiDiagramWrapper(resolutionX, resolutionY, width, height, LloydrelaxationInteration);
         DrawVoronoiDiagram();
     }
     private void DrawVoronoiDiagram()
@@ -71,52 +71,63 @@ public class GenerateVoronoi : MonoBehaviour
         }
 
     }
-    
-/*    private void InitializeVoronoiDiagram()
-    {
-        wrapper = new VoronoiCellsWrapper();
 
-        points = new List<Vector2f>();
-        for (int i = 0; i < resolutionX; i++)
+    #region obsolete
+    /*    private void InitializeVoronoiDiagram()
         {
-            for (int j = 0; j < resolutionY; j++)
+            wrapper = new VoronoiCellsWrapper();
+
+            points = new List<Vector2f>();
+            for (int i = 0; i < resolutionX; i++)
             {
-                Vector2f point = new Vector2f(UnityEngine.Random.Range((float)i * (width / resolutionX), (float)(i + 1) * (width / resolutionX)),
-                                        UnityEngine.Random.Range((float)j * (height / resolutionY), (float)(j + 1) * (height / resolutionY)));
-                points.Add(point);
+                for (int j = 0; j < resolutionY; j++)
+                {
+                    Vector2f point = new Vector2f(UnityEngine.Random.Range((float)i * (width / resolutionX), (float)(i + 1) * (width / resolutionX)),
+                                            UnityEngine.Random.Range((float)j * (height / resolutionY), (float)(j + 1) * (height / resolutionY)));
+                    points.Add(point);
 
-                wrapper.AddCell(point, 2);
+                    wrapper.AddCell(point, 2);
+                }
             }
+            voronoi = new Voronoi(points, new Rectf(0, 0, width, height),LloydrelaxationInteration, wrapper.VoronoiCellMapHelper);
+            wrapper.SetVoronoi(voronoi);
+            InitializeCenters();
         }
-        voronoi = new Voronoi(points, new Rectf(0, 0, width, height),LloydrelaxationInteration, wrapper.VoronoiCellMapHelper);
-        wrapper.SetVoronoi(voronoi);
-        InitializeCenters();
-    }
-    private void InitializeCenters()
-    {
-        foreach (var item in voronoi.SitesIndexedByLocation.Values)
+        private void InitializeCenters()
         {
-            var center = new CenterWrapper(centers.Count, item.Coord);
-            centers.Add(center);
-            wrapper.CenterLookup[item.Coord] = center;
-        }
-
-
-        //add neighbour centers
-        foreach (var center in centers)
-        {
-            foreach (var site in voronoi.SitesIndexedByLocation[center.Point].NeighborSites())
+            foreach (var item in voronoi.SitesIndexedByLocation.Values)
             {
-                center.neighbours.Add(wrapper.CenterLookup[site.Coord]);
+                var center = new CenterWrapper(centers.Count, item.Coord);
+                centers.Add(center);
+                wrapper.CenterLookup[item.Coord] = center;
             }
-        }
-    }*/
 
+
+            //add neighbour centers
+            foreach (var center in centers)
+            {
+                foreach (var site in voronoi.SitesIndexedByLocation[center.Point].NeighborSites())
+                {
+                    center.neighbours.Add(wrapper.CenterLookup[site.Coord]);
+                }
+            }
+        }*/
+    #endregion
+
+    List<EdgeWrapper> landedges = new List<EdgeWrapper>();
     public void UpdateVoronoiCell(Vector2f pos, CellType type)
     {
         //wrapper.CenterLookup[pos].SetType(type);
         voronoiWrapper.CentersLookup[pos].type = CellType.Land;
         voronoiWrapper.CentersLookup[pos].gameobject.GetComponent<MeshRenderer>().material = type==CellType.Land?land:ocean;
+        if ((type & CellType.Land) != 0)
+        {
+            var edges = voronoiWrapper.CentersLookup[pos].borders;
+            foreach (var item in edges)
+            {
+                landedges.Add(item);
+            }
+        }
         RefreshCellState();
     }
 
@@ -129,7 +140,7 @@ public class GenerateVoronoi : MonoBehaviour
                 bool isCoast = false;
                 foreach (var item in voronoiWrapper.CentersLookup[center].neighbours)
                 {
-                    if ((voronoiWrapper.CentersLookup[item.Point].type&CellType.Ocean) != 0)
+                    if ((voronoiWrapper.CentersLookup[item.Point].type & CellType.Ocean) != 0)
                     {
                         Debug.Log("has ocean set it to coast");
                         isCoast = true;
@@ -152,6 +163,7 @@ public class GenerateVoronoi : MonoBehaviour
     
     private void OnDrawGizmos()
     {
+        Gizmos.color = Color.white;
         if (voronoiWrapper == null) return;
         foreach (var center in voronoiWrapper.CentersLookup.Values)
         {
@@ -164,6 +176,16 @@ public class GenerateVoronoi : MonoBehaviour
             Gizmos.DrawLine(new Vector3(center.corners[0].point.x, center.corners[0].point.y, 0),
                 new Vector3(center.corners[center.corners.Count - 1].point.x, center.corners[center.corners.Count - 1].point.y, 0));
         }
+
+        Gizmos.color = Color.red;
+        if (landedges.Count > 0)
+        {
+            foreach (var item in landedges)
+            {
+                Gizmos.DrawLine(new Vector3(item.v0.point.x, item.v0.point.y, 0), new Vector3(item.v1.point.x, item.v1.point.y, 0));
+            }
+        }
+
     }
     private void Update()
     {
