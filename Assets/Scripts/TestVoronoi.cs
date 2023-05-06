@@ -5,9 +5,9 @@ using Unity.Collections;
 using Unity.Jobs;
 using UnityEngine;
 
-public class TestVoronoi : MonoBehaviour
+public class TestVoronoi
 {
-    List<Vector2f> points;
+    
     public int resolutionX;
     public int resolutionY;
     public int width;
@@ -15,38 +15,62 @@ public class TestVoronoi : MonoBehaviour
     public int LloydrelaxationInteration;
 
     Voronoi voronoi;
-    Dictionary<Vector2f, CornerWrapper> cornersLookup = new Dictionary<Vector2f, CornerWrapper>();
-    Dictionary<Vector2f, CenterWrapper> centersLookup = new Dictionary<Vector2f, CenterWrapper>();
-    // Start is called before the first frame update
-    void Start()
+    public List<Vector2f> centers;
+    public List<Vector2f> corners = new List<Vector2f>();
+
+    public Dictionary<Vector2f, CornerWrapper> CornersLookup = new Dictionary<Vector2f, CornerWrapper>();
+    public Dictionary<Vector2f, CenterWrapper> CentersLookup = new Dictionary<Vector2f, CenterWrapper>(); 
+   
+    public TestVoronoi(int resolutionX, int resolutionY, int width, int height, int lloydIteration)
     {
+        this.resolutionX = resolutionX;
+        this.resolutionY = resolutionY;
+        this.width = width;
+        this.height = height;
+        this.LloydrelaxationInteration = lloydIteration;
+
         InitializeVoronoi();
+        InitializeCenters();
         InitializeCorners();
-       // checkDuplicatedCorners().Forget();
     }
     private void InitializeVoronoi()
     {
-        points = new List<Vector2f>();
+        centers = new List<Vector2f>();
         for (int i = 0; i < resolutionX; i++)
         {
             for (int j = 0; j < resolutionY; j++)
             {
                 Vector2f point = new Vector2f(UnityEngine.Random.Range((float)i * (width / resolutionX), (float)(i + 1) * (width / resolutionX)),
                                         UnityEngine.Random.Range((float)j * (height / resolutionY), (float)(j + 1) * (height / resolutionY)));
-                points.Add(point);
+                centers.Add(point);
             }
         }
-        voronoi = new Voronoi(points, new Rectf(0, 0, width, height), LloydrelaxationInteration, null);
+        voronoi = new Voronoi(centers, new Rectf(0, 0, width, height), LloydrelaxationInteration, null);
 
         foreach (var item in voronoi.SiteCoords())
         {
-            centersLookup[item] = new CenterWrapper(centersLookup.Count, item);
+            CentersLookup[item] = new CenterWrapper(CentersLookup.Count, item); 
         }
+        
     }
     
+    private void InitializeCenters()
+    {
+        foreach (var item in CentersLookup.Values)
+        {
+            List<Vector2f> neighbours = voronoi.NeighborSitesForSite(item.Point);
+            foreach (var neighbour in neighbours)
+            {
+                item.neighbours.Add(CentersLookup[neighbour]);
+            }
+        }
+
+        Debug.Log(CentersLookup) ;
+    }
+
     private void InitializeCorners()
     {
-        foreach (var center in centersLookup.Values)
+        foreach (var center in CentersLookup.Values)
         {
             List<Vector2f> centerCorners = voronoi.Region(center.Point);
             List<Vector2f> neighbours = voronoi.NeighborSitesForSite(center.Point);
@@ -61,7 +85,7 @@ public class TestVoronoi : MonoBehaviour
                     //create cornerwrapper, if corner is not duplicated, and add corner to current centerwrapper's corners,
                     //and add current centerwrapper to new cornerwrapper's touches
                     CornerWrapper newCorner = CreateCorner(centerCorners[i]);
-                    cornersLookup[centerCorners[i]] = newCorner;
+                    CornersLookup[centerCorners[i]] = newCorner;
                     newCorner.index = corners.Count;
                     this.corners.Add(centerCorners[i]);
                     newCorner.touches.Add(center);
@@ -72,11 +96,16 @@ public class TestVoronoi : MonoBehaviour
         }
     }
 
+    private void InitializeEdges()
+    {
+
+    }
+
     private bool CheckDuplicateCorners(List<Vector2f> neighbours, CenterWrapper center, Vector2f corner)
     {
         foreach (var neighbourCoord in neighbours)
         {
-            CenterWrapper neighbour = centersLookup[neighbourCoord];
+            CenterWrapper neighbour = CentersLookup[neighbourCoord];
             foreach (var nCorners in neighbour.corners)
             {
                 //traverse the corners around the center, check whether there are duplicated corners,
@@ -96,10 +125,11 @@ public class TestVoronoi : MonoBehaviour
     private CornerWrapper CreateCorner(Vector2f point)
     {
         CornerWrapper wrapper = new CornerWrapper(point);
-        cornersLookup[point] = wrapper;
+        CornersLookup[point] = wrapper;
         return wrapper;
     }
 
+    #region JobSystem
     JobHandle handle;
     NativeArray<Vector2f> input;
     NativeArray<float> result;
@@ -124,66 +154,32 @@ public class TestVoronoi : MonoBehaviour
             input.Dispose();
         }
     }
-
-    List<Vector2f> corners = new List<Vector2f>();
-    private async UniTaskVoid checkDuplicatedCorners()
-    {
-        input = new NativeArray<Vector2f>(corners.ToArray(), Allocator.Persistent);
-        MyJob jobdata = new MyJob
+    #endregion
+    /*    private void OnDrawGizmos()
         {
-            input = input
-        };
-        await jobdata.Schedule();
-        input.Dispose();
-    }
-    void Update()
-    {
-
-    }
-    private void OnDrawGizmos()
-    {
-        if (corners != null&&Application.isPlaying)
-        {
-            foreach (var item in corners)
+            if (corners != null&&Application.isPlaying)
             {
-                Gizmos.DrawSphere(new Vector3(item.x, item.y, 0), 0.05f);
-            }
-
-            Gizmos.color = Color.red;
-            foreach (var item in centersLookup.Values)
-            {
-                for (int i = 0; i < item.corners.Count - 1; i++)
+                foreach (var item in corners)
                 {
-                    Gizmos.DrawLine(new Vector3(item.corners[i].point.x, item.corners[i].point.y, 0),
-                                    new Vector3(item.corners[i + 1].point.x, item.corners[i + 1].point.y, 0));
-                }
-                if (item.corners.Count > 1)
-                {
-                    Gizmos.DrawLine(new Vector3(item.corners[0].point.x, item.corners[0].point.y, 0),
-new Vector3(item.corners[item.corners.Count - 1].point.x, item.corners[item.corners.Count - 1].point.y, 0));
+                    Gizmos.DrawSphere(new Vector3(item.x, item.y, 0), 0.05f);
                 }
 
-            }
-
-        }
-
-/*        if (centersLookup != null)
-        {
-            foreach (var item in centersLookup.Values)
-            {
-                for (int i = 0; i < item.corners.Count - 1; i++)
+                Gizmos.color = Color.red;
+                foreach (var item in centersLookup.Values)
                 {
-                    Gizmos.DrawLine(new Vector3(item.corners[i].point.x, item.corners[i].point.y, 0),
-                                    new Vector3(item.corners[i + 1].point.x, item.corners[i + 1].point.y, 0));
+                    for (int i = 0; i < item.corners.Count - 1; i++)
+                    {
+                        Gizmos.DrawLine(new Vector3(item.corners[i].point.x, item.corners[i].point.y, 0),
+                                        new Vector3(item.corners[i + 1].point.x, item.corners[i + 1].point.y, 0));
+                    }
+                    if (item.corners.Count > 1)
+                    {
+                        Gizmos.DrawLine(new Vector3(item.corners[0].point.x, item.corners[0].point.y, 0),
+    new Vector3(item.corners[item.corners.Count - 1].point.x, item.corners[item.corners.Count - 1].point.y, 0));
+                    }
+
                 }
-                Gizmos.DrawLine(new Vector3(item.corners[item.corners.Count - 1].point.x, item.corners[item.corners.Count - 1].point.y, 0),
-                                new Vector3(item.corners[0].point.x, item.corners[0].point.y, 0));
+
             }
         }*/
-    }
-    private void SortCorners()
-    {
-
-    }
-
 }

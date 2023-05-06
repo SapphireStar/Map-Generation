@@ -1,13 +1,15 @@
 using csDelaunay;
+using Cysharp.Threading.Tasks;
 using System.Collections.Generic;
 using UnityEngine;
 
 public enum CellType
 {
-    Land = 0,
-    Water = 1,
-    Ocean = 2,
-    Coast = 3,
+    Land = 1,
+    Water = 2,
+    Ocean = 4,
+    Coast = 8,
+    Border = 16,
 }
 public class GenerateVoronoi : MonoBehaviour
 {
@@ -34,47 +36,43 @@ public class GenerateVoronoi : MonoBehaviour
     [SerializeField]
     private GameObject prefab;
 
-
     Voronoi voronoi;
-    VoronoiCellsWrapper wrapper;
     List<Vector2f> points;
     List<CenterWrapper> centers;
 
+    TestVoronoi voronoiWrapper;
     void Start()
     {
-        //centers = new List<CenterWrapper>();
-        //InitializeVoronoiDiagram();
-        //DrawVoronoiDiagram();
+        voronoiWrapper = new TestVoronoi(resolutionX, resolutionY, width, height, LloydrelaxationInteration);
+        DrawVoronoiDiagram();
     }
-    private  void DrawVoronoiDiagram()
+    private void DrawVoronoiDiagram()
     {
-        foreach (var center in wrapper.CenterLookup.Values)
+        foreach (var center in voronoiWrapper.CentersLookup.Values)
         {
-            //var region = center.Corners;
-            //GameObject go = Instantiate(prefab, transform);
-            //go.GetComponent<VoronoiCell>().Initialize(center.Site.Coord, this, land);
+            //var center = voronoiWrapper.CentersLookup[item];
+            GameObject go = Instantiate(prefab, transform);
+            go.GetComponent<VoronoiCell>().Initialize(center.Point, this, land);
+            center.gameobject = go;
 
-            //center.gameobject = go;
-
-            //if (center.Type == 2)
-            //{
-            //    go.GetComponent<MeshRenderer>().material = ocean;
-            //}
-            //else if (center.Type == 0)
-            //{
-            //    go.GetComponent<MeshRenderer>().material = land;
-            //}
-            //List<Vector3> list = new List<Vector3>();
-            //for (int j = 0; j < region.Count; j++)
-            //{
-            //    list.Add(new Vector3(region[j].x, region[j].y, 0));
-            //}
-            //go.GetComponent<MeshFilter>().mesh = CreateMesh(list.ToArray());
+            go.GetComponent<MeshRenderer>().material = land;
+            if ((center.type&CellType.Ocean) != 0)
+            {
+                go.GetComponent<MeshRenderer>().material = ocean;
+            }   
+            
+            List<Vector3> list = new List<Vector3>();
+            for (int j = 0; j < center.corners.Count; j++)
+            {
+                list.Add(new Vector3(center.corners[j].point.x, center.corners[j].point.y, 0));
+            }
+            go.GetComponent<MeshFilter>().mesh = CreateMesh(list.ToArray());
+            //await UniTask.Delay(25, false, PlayerLoopTiming.Update, this.GetCancellationTokenOnDestroy());
         }
 
     }
     
-    private void InitializeVoronoiDiagram()
+/*    private void InitializeVoronoiDiagram()
     {
         wrapper = new VoronoiCellsWrapper();
 
@@ -93,8 +91,6 @@ public class GenerateVoronoi : MonoBehaviour
         voronoi = new Voronoi(points, new Rectf(0, 0, width, height),LloydrelaxationInteration, wrapper.VoronoiCellMapHelper);
         wrapper.SetVoronoi(voronoi);
         InitializeCenters();
-        InitializeCorners();
-
     }
     private void InitializeCenters()
     {
@@ -114,121 +110,60 @@ public class GenerateVoronoi : MonoBehaviour
                 center.neighbours.Add(wrapper.CenterLookup[site.Coord]);
             }
         }
-    }
-    private void InitializeCorners()
-    {
-        //wrapper.RefreshAllCorner(new Rectf(0, 0, width, height), 2);
-        //foreach (var item in voronoi.Edges)
-        //{
-        //    CornerWrapper LeftCorner = null;
-        //    CornerWrapper RightCorner = null;
-        //    if(item.LeftVertex!=null)
-        //        wrapper.CornerMap.TryGetValue(item.LeftVertex.Coord,out LeftCorner);
-        //    if(item.RightVertex!=null)
-        //        wrapper.CornerMap.TryGetValue(item.RightVertex.Coord, out RightCorner);
+    }*/
 
-        //    if (LeftCorner!=null)
-        //    {
-        //        LeftCorner.edges.Add(item);
-        //        if (RightCorner!=null)
-        //        {
-        //            LeftCorner.neighbours.Add(RightCorner);
-        //        }
-        //    }
-        //    if (RightCorner!=null)
-        //    {
-        //        RightCorner.edges.Add(item);
-        //        if (LeftCorner!=null)
-        //        {
-        //            RightCorner.neighbours.Add(LeftCorner);
-        //        }
-        //    }
-        //}
-        //Debug.Log(wrapper.CornerMap);
-    }
-
-    public void UpdateVoronoiCell(Vector2f pos, int type)
+    public void UpdateVoronoiCell(Vector2f pos, CellType type)
     {
         //wrapper.CenterLookup[pos].SetType(type);
-        //wrapper.CenterLookup[pos].gameobject.GetComponent<MeshRenderer>().material = type==0?land:ocean;
+        voronoiWrapper.CentersLookup[pos].type = CellType.Land;
+        voronoiWrapper.CentersLookup[pos].gameobject.GetComponent<MeshRenderer>().material = type==CellType.Land?land:ocean;
         RefreshCellState();
     }
 
     private void RefreshCellState()
     {
-        //foreach (var center in wrapper.VoronoiCellMapHelper.Keys)
-        //{
-        //    if(wrapper.CenterLookup[center].Type == 0)
-        //    {
-        //        bool isCoast = false;
-        //        foreach (var item in voronoi.SitesIndexedByLocation[center].NeighborSites())
-        //        {
-        //            if (wrapper.CenterLookup[item.Coord].Type == 2)
-        //            {
-        //                Debug.Log("has ocean set it to coast");
-        //                isCoast = true;
-        //                break;
-        //            }
-        //        }
-        //        if (isCoast)
-        //        {
-        //            wrapper.CenterLookup[center].SetType((int)CellType.Coast);
-        //            wrapper.CenterLookup[center].gameobject.GetComponent<MeshRenderer>().material = coast;
-        //        }
-        //        else
-        //        {
-        //            wrapper.CenterLookup[center].SetType((int)CellType.Land);
-        //            wrapper.CenterLookup[center].gameobject.GetComponent<MeshRenderer>().material = land;
-        //        }
-        //    }
-        //}
+        foreach (var center in voronoiWrapper.CentersLookup.Keys)
+        {
+            if((voronoiWrapper.CentersLookup[center].type&CellType.Land) != 0)
+            {
+                bool isCoast = false;
+                foreach (var item in voronoiWrapper.CentersLookup[center].neighbours)
+                {
+                    if ((voronoiWrapper.CentersLookup[item.Point].type&CellType.Ocean) != 0)
+                    {
+                        Debug.Log("has ocean set it to coast");
+                        isCoast = true;
+                        break;
+                    }
+                }
+                if (isCoast)
+                {
+                    voronoiWrapper.CentersLookup[center].type = CellType.Land | CellType.Coast;
+                    voronoiWrapper.CentersLookup[center].gameobject.GetComponent<MeshRenderer>().material = coast;
+                }
+                else
+                {
+                    voronoiWrapper.CentersLookup[center].type = CellType.Land | CellType.Coast;
+                    voronoiWrapper.CentersLookup[center].gameobject.GetComponent<MeshRenderer>().material = land;
+                }
+            }
+        }
     }
     
     private void OnDrawGizmos()
     {
-
-        if (Application.isPlaying&&voronoi!=null)
+        if (voronoiWrapper == null) return;
+        foreach (var center in voronoiWrapper.CentersLookup.Values)
         {
-            foreach (var item in voronoi.Edges)
+            Gizmos.DrawSphere(new Vector3(center.Point.x, center.Point.y,0), 0.05f);
+            for (int i = 0; i < center.corners.Count-1; i++)
             {
-                if (item.LeftVertex != null && item.RightVertex != null)
-                {
-                    var newvertices = ClipLine.ClipSegment(new Rectf(0, 0, width, height), item.LeftVertex.Coord, item.RightVertex.Coord);
-                    if (newvertices != null)
-                    {
-                        item.LeftVertex.Coord = newvertices.Item1;
-                        item.RightVertex.Coord = newvertices.Item2;
-                    }
-                }
-
-                if (item.LeftVertex!=null)
-                {
-                    Gizmos.DrawSphere(new Vector3(item.LeftVertex.x, item.LeftVertex.y, 0), 0.05f);
-                }
-                if (item.RightVertex!=null)
-                {
-                    Gizmos.DrawSphere(new Vector3(item.RightVertex.x, item.RightVertex.y, 0), 0.05f);
-                }
+                Gizmos.DrawLine(new Vector3(center.corners[i].point.x, center.corners[i].point.y, 0),
+                                new Vector3(center.corners[i+1].point.x, center.corners[i+1].point.y, 0));
             }
+            Gizmos.DrawLine(new Vector3(center.corners[0].point.x, center.corners[0].point.y, 0),
+                new Vector3(center.corners[center.corners.Count - 1].point.x, center.corners[center.corners.Count - 1].point.y, 0));
         }
-
-        //if (wrapper != null)
-        //{
-        //    foreach (var item in wrapper.CornerMap.Values)
-        //    {
-        //        if(item.Type == 0)
-        //        {
-        //            Gizmos.color = Color.red;
-        //            Gizmos.DrawSphere(new Vector3(item.Pos.x, item.Pos.y, 0), 0.1f);
-        //        }
-        //        else
-        //        {
-        //            Gizmos.color = Color.blue;
-        //            Gizmos.DrawSphere(new Vector3(item.Pos.x, item.Pos.y, 0), 0.05f);
-        //        }
-                
-        //    }
-        //}
     }
     private void Update()
     {

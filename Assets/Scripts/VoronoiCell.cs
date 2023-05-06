@@ -28,7 +28,7 @@ public class VoronoiCell : MonoBehaviour, IPointerClickHandler,IPointerEnterHand
     {
         if (Input.GetKey(KeyCode.Mouse0))
         {
-            Parent.UpdateVoronoiCell(Pos, 0);
+            Parent.UpdateVoronoiCell(Pos, CellType.Land);
             Debug.Log(Pos);
         }
     }

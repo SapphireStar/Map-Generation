@@ -69,13 +69,11 @@ public class CenterWrapper
     public int Index;
 
     public Vector2f Point;
-    public bool Water;
-    public bool Ocean;
-    public bool coast;
-    public bool border;
+    public CellType type;
     public string biome;
     public float elevation;
     public float moisture;
+    public GameObject gameobject;
 
     public List<CenterWrapper> neighbours;
     public List<EdgeWrapper> borders;
@@ -87,6 +85,8 @@ public class CenterWrapper
         neighbours = new List<CenterWrapper>();
         borders = new List<EdgeWrapper>();
         corners = new List<CornerWrapper>();
+
+        type |= CellType.Ocean;
     }
 }
 public class EdgeWrapper
@@ -104,10 +104,7 @@ public class CornerWrapper
     public int index;
 
     public Vector2f point;
-    public bool water;
-    public bool ocean;
-    public bool coast;
-    public bool border;
+    public CellType type;
     public string biome;
     public float elevation;
     public float moisture;
