@@ -1,8 +1,6 @@
+using System.Collections.Generic;
 using csDelaunay;
 using Cysharp.Threading.Tasks;
-using System;
-using System.Collections;
-using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Jobs;
 using UnityEngine;
@@ -40,61 +38,59 @@ public class TestVoronoi : MonoBehaviour
         }
         voronoi = new Voronoi(points, new Rectf(0, 0, width, height), LloydrelaxationInteration, null);
 
-        foreach (var item in points)
+        foreach (var item in voronoi.SiteCoords())
         {
             centersLookup[item] = new CenterWrapper(centersLookup.Count, item);
         }
     }
     
-    List<Tuple<Vector2f, Vector2f>> edges = new List<Tuple<Vector2f, Vector2f>>();
     private void InitializeCorners()
     {
-        foreach (var item in centersLookup.Values)
+        foreach (var center in centersLookup.Values)
         {
-            List<Vector2f> neighbours = voronoi.NeighborSitesForSite(item.Point);
-            List<Vector2f> corners = voronoi.Region(item.Point);
+            List<Vector2f> centerCorners = voronoi.Region(center.Point);
+            List<Vector2f> neighbours = voronoi.NeighborSitesForSite(center.Point);
+
             //check duplicated corners, if corner duplicated, then not create new cornerwrapper,
             //instead, add old cornerwrapper to current center, and add current centerwrapper to cornerwrapper's touches
-            foreach (var center in neighbours)
+            for (int i = 0; i < centerCorners.Count; i++)
             {
-                CenterWrapper wrapper = centersLookup[center];
-                item.corners.AddRange(CheckDuplicateCorners(wrapper, corners));
-
-            }
-            //create cornerwrapper, if corner is not duplicated, and add corner to current centerwrapper's corners,
-            //and add current centerwrapper to new cornerwrapper's touches
-            foreach (var corner in corners)
-            {
-                CornerWrapper newCorner = CreateCorner(corner);
-                newCorner.index = corners.Count;
-                this.corners.Add(corner);
-                newCorner.touches.Add(item);
-                item.corners.Add(newCorner);
+                if(!CheckDuplicateCorners(neighbours, center, centerCorners[i]))
+                {
+                    Debug.Log("create new corner");
+                    //create cornerwrapper, if corner is not duplicated, and add corner to current centerwrapper's corners,
+                    //and add current centerwrapper to new cornerwrapper's touches
+                    CornerWrapper newCorner = CreateCorner(centerCorners[i]);
+                    cornersLookup[centerCorners[i]] = newCorner;
+                    newCorner.index = corners.Count;
+                    this.corners.Add(centerCorners[i]);
+                    newCorner.touches.Add(center);
+                    center.corners.Add(newCorner);
+                }
             }
 
         }
-        Debug.Log(centersLookup);
-        Debug.Log(corners.Count);
     }
 
-    private List<CornerWrapper> CheckDuplicateCorners(CenterWrapper wrapper, List<Vector2f> corners)
+    private bool CheckDuplicateCorners(List<Vector2f> neighbours, CenterWrapper center, Vector2f corner)
     {
-        List<CornerWrapper> result = new List<CornerWrapper>();
-        foreach (var item in wrapper.corners)
+        foreach (var neighbourCoord in neighbours)
         {
-            for (int i = 0; i < corners.Count; i++)
+            CenterWrapper neighbour = centersLookup[neighbourCoord];
+            foreach (var nCorners in neighbour.corners)
             {
-                if(Mathf.Abs(item.point.x - corners[i].x) < 1e-6
-                && Mathf.Abs(item.point.y - corners[i].y) < 1e-6)
+                //traverse the corners around the center, check whether there are duplicated corners,
+                //delete duplicated corners, and add the corner to both current center and the traversed center
+                if (Mathf.Abs(nCorners.point.x - corner.x) < 1e-6
+                && Mathf.Abs(nCorners.point.y - corner.y) < 1e-6)
                 {
-                    //TODO add current center to duplicated old corner
-                    result.Add(item);
-                    corners.Remove(corners[i]);
-                    i--;
+                    nCorners.touches.Add(center);
+                    center.corners.Add(nCorners);
+                    return true;
                 }
             }
         }
-        return result;
+        return false;
     }
 
     private CornerWrapper CreateCorner(Vector2f point)
@@ -140,20 +136,54 @@ public class TestVoronoi : MonoBehaviour
         await jobdata.Schedule();
         input.Dispose();
     }
+    void Update()
+    {
+
+    }
     private void OnDrawGizmos()
     {
-        if (corners != null)
+        if (corners != null&&Application.isPlaying)
         {
             foreach (var item in corners)
             {
                 Gizmos.DrawSphere(new Vector3(item.x, item.y, 0), 0.05f);
             }
+
+            Gizmos.color = Color.red;
+            foreach (var item in centersLookup.Values)
+            {
+                for (int i = 0; i < item.corners.Count - 1; i++)
+                {
+                    Gizmos.DrawLine(new Vector3(item.corners[i].point.x, item.corners[i].point.y, 0),
+                                    new Vector3(item.corners[i + 1].point.x, item.corners[i + 1].point.y, 0));
+                }
+                if (item.corners.Count > 1)
+                {
+                    Gizmos.DrawLine(new Vector3(item.corners[0].point.x, item.corners[0].point.y, 0),
+new Vector3(item.corners[item.corners.Count - 1].point.x, item.corners[item.corners.Count - 1].point.y, 0));
+                }
+
+            }
+
         }
 
+/*        if (centersLookup != null)
+        {
+            foreach (var item in centersLookup.Values)
+            {
+                for (int i = 0; i < item.corners.Count - 1; i++)
+                {
+                    Gizmos.DrawLine(new Vector3(item.corners[i].point.x, item.corners[i].point.y, 0),
+                                    new Vector3(item.corners[i + 1].point.x, item.corners[i + 1].point.y, 0));
+                }
+                Gizmos.DrawLine(new Vector3(item.corners[item.corners.Count - 1].point.x, item.corners[item.corners.Count - 1].point.y, 0),
+                                new Vector3(item.corners[0].point.x, item.corners[0].point.y, 0));
+            }
+        }*/
     }
-    // Update is called once per frame
-    void Update()
+    private void SortCorners()
     {
-        
+
     }
+
 }
