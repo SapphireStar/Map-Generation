@@ -35,6 +35,7 @@ public class VoronoiDiagramWrapper
         InitializeCenters();
         InitializeCorners();
         InitializeEdges();
+        Debug.Log(EdgesLookup);
     }
     private void InitializeVoronoi()
     {
@@ -131,43 +132,35 @@ public class VoronoiDiagramWrapper
         {
             for (int i = 0; i < item.corners.Count - 1; i++)
             {
-                Vector2f curEdgeCenter = new Vector2f((item.corners[i].point.x+item.corners[i].point.y)/2,
-                                                      (item.corners[i+1].point.x + item.corners[i+1].point.y)/2);
-                if (EdgesLookup.ContainsKey(curEdgeCenter))
-                {
-                    EdgesLookup[curEdgeCenter].d1 = item;
-                }
-                else
-                {
-                    EdgeWrapper newEdge = new EdgeWrapper(EdgesLookup.Count, curEdgeCenter);
-                    newEdge.d0 = item;
-                    newEdge.v0 = item.corners[i];
-                    newEdge.v1 = item.corners[i + 1];
-                    EdgesLookup[newEdge.midpoint] = newEdge;
-                }
-                item.borders.Add(EdgesLookup[curEdgeCenter]);
+                checkDuplicatedEdges(item, item.corners[i], item.corners[i + 1]);
             }
-            Vector2f lastEdgeCenter = new Vector2f((item.corners[item.corners.Count - 1].point.x + item.corners[item.corners.Count - 1].point.y) / 2,
-                                      (item.corners[0].point.x + item.corners[0].point.y) / 2);
-            if (EdgesLookup.ContainsKey(lastEdgeCenter))
-            {
-                EdgesLookup[lastEdgeCenter].d1 = item;
-            }
-            else
-            {
-                EdgeWrapper newEdge = new EdgeWrapper(EdgesLookup.Count, lastEdgeCenter);
-                newEdge.d0 = item;
-                newEdge.v0 = item.corners[item.corners.Count - 1];
-                newEdge.v1 = item.corners[0];
-                EdgesLookup[newEdge.midpoint] = newEdge;
-            }
-            item.borders.Add(EdgesLookup[lastEdgeCenter]);
+            checkDuplicatedEdges(item, item.corners[item.corners.Count - 1], item.corners[0]);
         }
     }
 
-    private void checkDuplicatedEdges(CenterWrapper center)
+    private void checkDuplicatedEdges(CenterWrapper center,CornerWrapper corner1, CornerWrapper corner2)
     {
-
+        Vector2f curEdgeCenter = new Vector2f((corner1.point.x + corner1.point.y) / 2,
+                                      (corner2.point.x + corner2.point.y) / 2);
+        if (EdgesLookup.ContainsKey(curEdgeCenter))
+        {
+            EdgesLookup[curEdgeCenter].d1 = center;
+        }
+        else
+        {
+            EdgeWrapper newEdge = new EdgeWrapper(EdgesLookup.Count, curEdgeCenter);
+            newEdge.d0 = center;
+            newEdge.v0 = corner1;
+            newEdge.v1 = corner2;
+            EdgesLookup[newEdge.midpoint] = newEdge;
+            //Intialize center's edges property
+            corner1.edges.Add(newEdge);
+            corner2.edges.Add(newEdge);
+            corner1.adjacents.Add(corner2);
+            corner2.adjacents.Add(corner1);
+        }
+        //Initialize center's borders property
+        center.borders.Add(EdgesLookup[curEdgeCenter]);
     }
 
 

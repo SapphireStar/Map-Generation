@@ -130,6 +130,6 @@ public class CornerWrapper
         edges = new List<EdgeWrapper>();
         adjacents = new List<CornerWrapper>();
 
-        type |= CellType.Ocean;
+        type |= (CellType.Ocean | CellType.Water);
     }
 }
