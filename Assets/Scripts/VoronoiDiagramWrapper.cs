@@ -15,7 +15,7 @@ public class VoronoiDiagramWrapper
     public int LloydrelaxationInteration;
 
     Voronoi voronoi;
-    public List<Vector2f> centers;
+    public List<Vector2f> centers= new List<Vector2f>();
     public List<Vector2f> Corners = new List<Vector2f>();
     public List<Vector2f> edges = new List<Vector2f>();
 
@@ -35,11 +35,9 @@ public class VoronoiDiagramWrapper
         InitializeCenters();
         InitializeCorners();
         InitializeEdges();
-        Debug.Log(EdgesLookup);
     }
     private void InitializeVoronoi()
     {
-        centers = new List<Vector2f>();
         for (int i = 0; i < resolutionX; i++)
         {
             for (int j = 0; j < resolutionY; j++)
@@ -85,7 +83,6 @@ public class VoronoiDiagramWrapper
             {
                 if(!CheckDuplicateCorners(neighbours, center, centerCorners[i]))
                 {
-                    Debug.Log("create new corner");
                     //create cornerwrapper, if corner is not duplicated, and add corner to current centerwrapper's corners,
                     //and add current centerwrapper to new cornerwrapper's touches
                     CornerWrapper newCorner = CreateCorner(centerCorners[i]);
@@ -140,8 +137,8 @@ public class VoronoiDiagramWrapper
 
     private void checkDuplicatedEdges(CenterWrapper center,CornerWrapper corner1, CornerWrapper corner2)
     {
-        Vector2f curEdgeCenter = new Vector2f((corner1.point.x + corner1.point.y) / 2,
-                                      (corner2.point.x + corner2.point.y) / 2);
+        Vector2f curEdgeCenter = new Vector2f((corner1.point.x + corner2.point.x) / 2,
+                                      (corner1.point.y + corner2.point.y) / 2);
         if (EdgesLookup.ContainsKey(curEdgeCenter))
         {
             EdgesLookup[curEdgeCenter].d1 = center;

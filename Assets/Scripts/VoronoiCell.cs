@@ -26,10 +26,10 @@ public class VoronoiCell : MonoBehaviour, IPointerClickHandler,IPointerEnterHand
 
     public void OnPointerEnter(PointerEventData eventData)
     {
-        if (Input.GetKey(KeyCode.Mouse0))
+/*        if (Input.GetKey(KeyCode.Mouse0))
         {
             Parent.UpdateVoronoiCell(Pos, CellType.Land);
             Debug.Log(Pos);
-        }
+        }*/
     }
 }

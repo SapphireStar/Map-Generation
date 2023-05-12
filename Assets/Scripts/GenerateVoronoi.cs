@@ -1,7 +1,9 @@
 using csDelaunay;
 using Cysharp.Threading.Tasks;
 using System.Collections.Generic;
+using UnityEditor;
 using UnityEngine;
+using static VoronoiHelper;
 
 public enum CellType
 {
@@ -10,6 +12,7 @@ public enum CellType
     Ocean = 4,
     Coast = 8,
     Border = 16,
+    River = 32,
 }
 public class GenerateVoronoi : MonoBehaviour
 {
@@ -117,22 +120,58 @@ public class GenerateVoronoi : MonoBehaviour
     List<EdgeWrapper> landedges = new List<EdgeWrapper>();
     public void UpdateVoronoiCell(Vector2f pos, CellType type)
     {
-        voronoiWrapper.CentersLookup[pos].type = CellType.Land;
-        voronoiWrapper.CentersLookup[pos].gameobject.GetComponent<MeshRenderer>().material = type==CellType.Land?land:ocean;
-        if ((type & CellType.Land) != 0)
-        {
-            var edges = voronoiWrapper.CentersLookup[pos].borders;
-            foreach (var item in edges)
-            {
-                landedges.Add(item);
-            }
-        }
+        voronoiWrapper.CentersLookup[pos].type = type;
+        UpdateCorners(voronoiWrapper.CentersLookup[pos], type);
+        
+        RefreshCellMaterial(voronoiWrapper.CentersLookup[pos].gameobject,type);
         RefreshCellState();
-        RefreshCornerElevation();
-        RefreshCenterElevation();
-        Debug.Log(voronoiWrapper);
-    }
 
+        AssignElevation();
+        AssignMoisture();
+    }
+    private void AssignElevation()
+    {
+        Debug.Log("Assigning Elevation");
+        RefreshCornerElevation();
+        RefreshLakeElevation();
+        RefreshOceanElevation();
+        RefreshCenterElevation();
+    }
+    private void AssignMoisture()
+    {
+        Debug.Log("Assigning Moisture");
+        RefreshRiverVolume();
+        RefreshCornerMoisture();
+    }
+    private void UpdateCorners(CenterWrapper center, CellType type)
+    {
+        foreach (var corner in center.corners)
+        {
+            corner.type = type;
+        }
+    }
+    private void RefreshCellMaterial(GameObject cell, CellType type)
+    {
+        Material mat = ocean;
+        if ((type & CellType.Land) > 0)
+        {
+            mat = land;
+        }
+        if ((type & CellType.Water) > 0)
+        {
+            mat = water;
+        }
+        if ((type & CellType.Coast) > 0)
+        {
+            mat = coast;
+        }
+        if ((type & CellType.Ocean) > 0)
+        {
+            mat = ocean;
+        }
+
+        cell.GetComponent<MeshRenderer>().material = mat;
+    }
     private void RefreshCellState()
     {
         foreach (var center in voronoiWrapper.CentersLookup.Keys)
@@ -150,7 +189,6 @@ public class GenerateVoronoi : MonoBehaviour
             {
                 if ((voronoiWrapper.CentersLookup[item.Point].type & CellType.Ocean) != 0)
                 {
-                    Debug.Log("has ocean set it to coast");
                     isCoast = true;
                     break;
                 }
@@ -184,6 +222,58 @@ public class GenerateVoronoi : MonoBehaviour
             }
         }
     }
+    private void RefreshLakeElevation()
+    {
+        foreach (var wrapper in voronoiWrapper.CentersLookup.Values)
+        {
+            if (VoronoiHelper.IsLake(wrapper.type))
+            {
+                float minElevation = int.MaxValue;
+                foreach (var item in wrapper.corners)
+                {
+                    
+                    if (item.elevation < minElevation)
+                    {
+                        minElevation = item.elevation;
+                    }
+                }
+                foreach (var item in wrapper.corners)
+                {
+                    item.elevation = minElevation;
+                }
+            }
+        }
+    }
+    //下面的代码实现了将涂为Ocean的Cell的海拔重新设为0，同时，为了让结果更加真实，
+    //一个Cell如果从Land被涂成了Ocean，那么新的Cell的corner如果同时属于类型为Land的Cell，
+    //那么corner的海拔不会变化，制造出悬崖的效果。
+    private void RefreshOceanElevation()
+    {
+        foreach (var wrapper in voronoiWrapper.CentersLookup.Values)
+        {
+            if (VoronoiHelper.IsOcean(wrapper.type))
+            {
+                foreach (var item in wrapper.corners)
+                {
+                    if (!checkIsLandCorner(item))
+                    {
+                        item.elevation = 0;
+                    }   
+                }
+            }
+        }
+    }
+    private bool checkIsLandCorner(CornerWrapper corner)
+    {
+        foreach (var item in corner.touches)
+        {
+            if ((item.type & CellType.Land) > 0)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
     private void RefreshCornerElevation()
     {
         float curElevation = 1;
@@ -200,7 +290,6 @@ public class GenerateVoronoi : MonoBehaviour
         {
             UpdateCornerElevationInQueue(queue, traversedCorner, ref curElevation);
         }
-        Debug.Log(traversedCorner);
     }
     private void UpdateCornerElevationInQueue(Queue<CornerWrapper> queue, HashSet<CornerWrapper> traversedCorners, ref float curElevation)
     {
@@ -225,24 +314,123 @@ public class GenerateVoronoi : MonoBehaviour
         curElevation++;
     }
     //Refresh center's elevation according to its corners' average elevation
+
     private void RefreshCenterElevation()
     {
+        //由于海边悬崖的机制，导致OceanCell的corner不一定海拔为0，因此需要手动将所有Ocean的海拔设为0
         foreach (var item in voronoiWrapper.CentersLookup.Values)
         {
-            float sum = 0;
-            foreach (var corner in item.corners)
+            if ((item.type & CellType.Ocean) > 0)
             {
-                sum += corner.elevation;
+                item.elevation = 0;
             }
-            item.elevation = sum / item.corners.Count;
+            else
+            {
+                float sum = 0;
+                foreach (var corner in item.corners)
+                {
+                    sum += corner.elevation;
+                }
+                item.elevation = sum / item.corners.Count;
+            }
         }
     }
+
+    private void RefreshRiverVolume()
+    {
+        foreach (var item in voronoiWrapper.EdgesLookup.Values)
+        {
+            item.riverVolume = 0;
+        }
+        foreach (var item in voronoiWrapper.CornersLookup.Values)
+        {
+            if ((item.type & CellType.River) > 0)
+            {
+                item.type -= CellType.River;
+            }
+            if (item.elevation > 6)
+            {
+                if (UnityEngine.Random.Range(0f, 1f) > 0.9f)
+                {
+                    CreateRiver(item);
+                }
+            }
+        }
+    }
+    private void CreateRiver(CornerWrapper corner)
+    {
+        HashSet<Vector2f> traversedCorner = new HashSet<Vector2f>();
+        CornerWrapper cur = corner;
+        cur.type |= CellType.River;
+        traversedCorner.Add(cur.point);
+        while (cur.elevation > 0)
+        {
+            CornerWrapper min = null;
+            foreach (var item in cur.adjacents)
+            {
+                if (traversedCorner.Contains(item.point))
+                {
+                    continue;
+                }
+                traversedCorner.Add(item.point);
+                if (min == null || item.elevation <= min.elevation/* || 
+                    (item.elevation<min.elevation &&
+                    Vector2f.DistanceSquare(item.point,cur.point) > Vector2f.DistanceSquare(min.point, cur.point))*/)
+                {
+                    min = item;
+                }
+            }
+            //If all the ajacent corners are traversed and not reach the ocean, means it can't find the way to ocean,
+            //then stop creating river
+            if (min == null)
+            {
+                break;
+            }
+            min.type |= CellType.River;
+            voronoiWrapper.EdgesLookup[new Vector2f((cur.point.x + min.point.x) / 2, (cur.point.y + min.point.y) / 2)].riverVolume++;
+            cur = min;
+        }
+    }
+
+    private void RefreshCornerMoisture()
+    {
+        Queue<CornerWrapper> corners = new Queue<CornerWrapper>();
+        foreach (var item in voronoiWrapper.CornersLookup.Values)
+        {
+            item.moisture = 0;
+            if (IsRiver(item.type) || IsLake(item.type))
+            {
+                item.moisture = 1f;
+                corners.Enqueue(item);
+            }
+        }
+        while (corners.Count > 0)
+        {
+            CornerWrapper corner = corners.Dequeue();
+            foreach (var item in corner.adjacents)
+            {
+                float newMoisture = 0.9f * corner.moisture;
+                if (newMoisture > item.moisture && newMoisture>0.8f)
+                {
+                    item.moisture = newMoisture;
+                    corners.Enqueue(item);
+                }
+            }
+        }
+
+    }
+
     public void OnGUI()
     {
-        foreach (var item in voronoiWrapper.CentersLookup.Values)
+        /*        foreach (var item in voronoiWrapper.CentersLookup.Values)
+                {
+                    Vector3 pos = Camera.main.WorldToScreenPoint(new Vector3(item.Point.x, -item.Point.y + height, 0));
+                    GUI.Label(new Rect(pos.x, pos.y, Screen.width, Screen.height), item.elevation.ToString());
+                }*/
+        foreach (var item in voronoiWrapper.CornersLookup.Values)
         {
-            Vector3 pos = Camera.main.WorldToScreenPoint(new Vector3(item.Point.x,-item.Point.y + height,0));
-            GUI.Label(new Rect(pos.x,pos.y,Screen.width,Screen.height), item.elevation.ToString());
+            Vector3 pos = Camera.main.WorldToScreenPoint(new Vector3(item.point.x, -item.point.y + height, 0));
+            GUI.Label(new Rect(pos.x, pos.y, Screen.width, Screen.height), item.moisture.ToString());
         }
     }
 
@@ -271,14 +459,17 @@ public class GenerateVoronoi : MonoBehaviour
         }
 
         Gizmos.color = Color.blue;
-/*        foreach (var item in voronoiWrapper.CornersLookup.Values)
+        foreach (var item in voronoiWrapper.EdgesLookup.Values)
         {
-            if ((item.type & CellType.Coast) != 0)
+            
+            if (item.riverVolume > 0)
             {
-                Gizmos.DrawSphere(new Vector3(item.point.x, item.point.y,0), 0.05f);
+                Gizmos.DrawLine(new Vector3(item.v0.point.x, item.v0.point.y, 0),
+    new Vector3(item.v1.point.x, item.v1.point.y, 0));
             }
-        }*/
 
+        }
+        
     }
     private void Update()
     {
