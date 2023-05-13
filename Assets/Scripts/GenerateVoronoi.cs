@@ -297,6 +297,7 @@ public class GenerateVoronoi : MonoBehaviour
         {
             UpdateCornerElevationInQueue(queue, traversedCorner, ref curElevation);
         }
+        RedistributeCornerElevation();
     }
     private void UpdateCornerElevationInQueue(Queue<CornerWrapper> queue, HashSet<CornerWrapper> traversedCorners, ref float curElevation)
     {
@@ -320,6 +321,38 @@ public class GenerateVoronoi : MonoBehaviour
         }
         curElevation++;
     }
+
+
+    List<CornerWrapper> landcorners = new List<CornerWrapper>();
+    //Redistribute corners' elevation, to make more low elevation cells
+    private void RedistributeCornerElevation()
+    {
+        float SCALE_FACTOR = 1f;
+        landcorners.Clear();
+        foreach (var item in voronoiWrapper.CornersLookup.Values)
+        {
+            //add all cells except ocean to landcorners, otherwise ocean will be included in the calculating of elevation
+            if (!IsOcean(item.type))
+            {
+                landcorners.Add(item);
+            }
+        }
+        landcorners.Sort((corner1,corner2) =>
+        {
+            return corner1.elevation.CompareTo(corner2.elevation);
+        });
+        for (int i = 0; i < landcorners.Count; i++)
+        {
+            float y = (float)i / (float)(landcorners.Count - 1);
+            float x = Mathf.Sqrt(SCALE_FACTOR) - Mathf.Sqrt(SCALE_FACTOR * (1 - y));
+            if (x > 1f)
+            {
+                x = 1f;
+            }
+            landcorners[i].elevation = x;
+        }
+    }
+
     //Refresh center's elevation according to its corners' average elevation
 
     private void RefreshCenterElevation()
@@ -361,8 +394,8 @@ public class GenerateVoronoi : MonoBehaviour
         }
         foreach (var item in voronoiWrapper.CornersLookup.Values)
         {
-
-            if (item.elevation > 6)
+            //Because of redistribution of elevation, need to modify the offset condition of generating a river
+            if (item.elevation > 0.8f)
             {
                 if (UnityEngine.Random.Range(0f, 1f) > 0.95f)
                 {
@@ -445,6 +478,7 @@ public class GenerateVoronoi : MonoBehaviour
         }
     }
 
+    //Create a two dimention array to store the CellType for the specific elevation and moisture
     List<List<CellType>> CellTypeHelper = new List<List<CellType>>()
     {
         new List<CellType>(){
@@ -481,6 +515,8 @@ public class GenerateVoronoi : MonoBehaviour
         }
     };
 
+    //saturate Centers' elevation and moisture, then get the Biomes through CellTypeHelper,
+    //and get the material from CellMaterialData
     private void RefreshLandCellBiomes()
     {
         foreach (var item in voronoiWrapper.CentersLookup.Values)
@@ -488,7 +524,7 @@ public class GenerateVoronoi : MonoBehaviour
             item.type = ResetCellType(item.type);
             if (!IsOcean(item.type))
             {
-                int elevation = (int)((item.elevation) * CellTypeHelper.Count / 10);
+                int elevation = (int)((item.elevation) * CellTypeHelper.Count/* / 10*/);
                 if (elevation > CellTypeHelper.Count - 1)
                 {
                     elevation = CellTypeHelper.Count - 1;
@@ -504,6 +540,7 @@ public class GenerateVoronoi : MonoBehaviour
                 {
                     item.type |= CellType.SubTropicalDesert;
                 }
+                //Make Lake cells as Lake in default
                 else if (IsLake(item.type))
                 {
                     item.type |= CellType.Lake;
@@ -528,16 +565,16 @@ public class GenerateVoronoi : MonoBehaviour
     }
     public void OnGUI()
     {
-/*        foreach (var item in voronoiWrapper.CentersLookup.Values)
-        {
-            Vector3 pos = Camera.main.WorldToScreenPoint(new Vector3(item.Point.x, -item.Point.y + height, 0));
-            GUI.Label(new Rect(pos.x, pos.y, Screen.width, Screen.height), item.elevation.ToString());
-        }*/
         foreach (var item in voronoiWrapper.CentersLookup.Values)
         {
             Vector3 pos = Camera.main.WorldToScreenPoint(new Vector3(item.Point.x, -item.Point.y + height, 0));
-            GUI.Label(new Rect(pos.x, pos.y, Screen.width, Screen.height), item.moisture.ToString());
+            GUI.Label(new Rect(pos.x, pos.y, Screen.width, Screen.height), item.elevation.ToString());
         }
+        /*        foreach (var item in voronoiWrapper.CentersLookup.Values)
+                {
+                    Vector3 pos = Camera.main.WorldToScreenPoint(new Vector3(item.Point.x, -item.Point.y + height, 0));
+                    GUI.Label(new Rect(pos.x, pos.y, Screen.width, Screen.height), item.moisture.ToString());
+                }*/
     }
 
     private void OnDrawGizmos()
