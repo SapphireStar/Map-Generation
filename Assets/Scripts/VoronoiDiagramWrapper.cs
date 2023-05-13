@@ -67,7 +67,7 @@ public class VoronoiDiagramWrapper
             }
         }
 
-        Debug.Log(CentersLookup) ;
+        Debug.Log(CentersLookup);
     }
 
     private void InitializeCorners()

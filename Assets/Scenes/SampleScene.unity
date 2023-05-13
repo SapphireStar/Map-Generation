@@ -170,12 +170,13 @@ MonoBehaviour:
   resolutionY: 20
   width: 20
   height: 20
-  LloydrelaxationInteration: 5
+  LloydrelaxationInteration: 1
   land: {fileID: 2100000, guid: 3081ac2dfce60f54c830a1be0eee70d0, type: 2}
   water: {fileID: 2100000, guid: a2e9e6e7315f02547961e293263d11e9, type: 2}
   ocean: {fileID: 2100000, guid: 3331f78e9341bdc4fb40616ea8633a81, type: 2}
   coast: {fileID: 2100000, guid: 03c62e99f7d4b2947bef1f997ff3d82e, type: 2}
   prefab: {fileID: 629534790452203579, guid: c7ce9f8bf9df436499fb435782f8de9b, type: 3}
+  cellMaterialData: {fileID: 11400000, guid: b851c3fee0c699d47b2c4e845aed828e, type: 2}
 --- !u!1 &240296867
 GameObject:
   m_ObjectHideFlags: 0

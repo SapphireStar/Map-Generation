@@ -7,12 +7,30 @@ using static VoronoiHelper;
 
 public enum CellType
 {
+    //Base Property
     Land = 1,
     Water = 2,
     Ocean = 4,
     Coast = 8,
     Border = 16,
     River = 32,
+
+    //Advanced Biomes
+    SubTropicalDesert = 64,
+    TemperateDesert = 128,
+    Scorched = 256,
+    Bare = 512,
+    Tundra = 1024,
+    GrassLand = 2048,
+    ShrubLand = 4096,
+    TropicalSeasonalForest = 8192,
+    TemperateDeciduousForest = 16384,
+    TropicalRainforest = 32768,
+    TemperateRainforest = 65536,
+    Taiga = 131072,
+    Snow = 262144,
+    Lake = 524288,
+
 }
 public class GenerateVoronoi : MonoBehaviour
 {
@@ -38,10 +56,8 @@ public class GenerateVoronoi : MonoBehaviour
 
     [SerializeField]
     private GameObject prefab;
-
-    Voronoi voronoi;
-    List<Vector2f> points;
-    List<CenterWrapper> centers;
+    [SerializeField]
+    private CellMaterialData cellMaterialData;
 
     VoronoiDiagramWrapper voronoiWrapper;
     void Start()
@@ -58,7 +74,7 @@ public class GenerateVoronoi : MonoBehaviour
             go.GetComponent<VoronoiCell>().Initialize(center.Point, this, land);
             center.gameobject = go;
 
-            go.GetComponent<MeshRenderer>().material = land;
+            //go.GetComponent<MeshRenderer>().material = land;
             if ((center.type&CellType.Ocean) != 0)
             {
                 go.GetComponent<MeshRenderer>().material = ocean;
@@ -123,11 +139,13 @@ public class GenerateVoronoi : MonoBehaviour
         voronoiWrapper.CentersLookup[pos].type = type;
         UpdateCorners(voronoiWrapper.CentersLookup[pos], type);
         
-        RefreshCellMaterial(voronoiWrapper.CentersLookup[pos].gameobject,type);
         RefreshCellState();
 
         AssignElevation();
         AssignMoisture();
+        AssignBiomes();
+
+        DrawEffect();
     }
     private void AssignElevation()
     {
@@ -142,6 +160,13 @@ public class GenerateVoronoi : MonoBehaviour
         Debug.Log("Assigning Moisture");
         RefreshRiverVolume();
         RefreshCornerMoisture();
+        RefreshCellMoisture();
+    }
+
+    private void AssignBiomes()
+    {
+        Debug.Log("Assigning Biomes");
+        RefreshLandCellBiomes();
     }
     private void UpdateCorners(CenterWrapper center, CellType type)
     {
@@ -150,28 +175,7 @@ public class GenerateVoronoi : MonoBehaviour
             corner.type = type;
         }
     }
-    private void RefreshCellMaterial(GameObject cell, CellType type)
-    {
-        Material mat = ocean;
-        if ((type & CellType.Land) > 0)
-        {
-            mat = land;
-        }
-        if ((type & CellType.Water) > 0)
-        {
-            mat = water;
-        }
-        if ((type & CellType.Coast) > 0)
-        {
-            mat = coast;
-        }
-        if ((type & CellType.Ocean) > 0)
-        {
-            mat = ocean;
-        }
 
-        cell.GetComponent<MeshRenderer>().material = mat;
-    }
     private void RefreshCellState()
     {
         foreach (var center in voronoiWrapper.CentersLookup.Keys)
@@ -179,10 +183,11 @@ public class GenerateVoronoi : MonoBehaviour
             checkCellCoast(center);
             
         }
+
     }
     private void checkCellCoast(Vector2f center)
     {
-        if ((voronoiWrapper.CentersLookup[center].type & CellType.Land) != 0)
+        if (IsLand(voronoiWrapper.CentersLookup[center].type))
         {
             bool isCoast = false;
             foreach (var item in voronoiWrapper.CentersLookup[center].neighbours)
@@ -196,14 +201,13 @@ public class GenerateVoronoi : MonoBehaviour
             if (isCoast)
             {
                 voronoiWrapper.CentersLookup[center].type = CellType.Land | CellType.Coast;
-                voronoiWrapper.CentersLookup[center].gameobject.GetComponent<MeshRenderer>().material = coast;
                 //If the cell is coast, then change its corners that close to ocean to coast,
                 //so that can use DFS to traverse these corners to center of the map and update the elevation
                 foreach (var item in voronoiWrapper.CentersLookup[center].corners)
                 {
                     foreach (var touch in item.touches)
                     {
-                        if ((touch.type & CellType.Ocean) != 0)
+                        if (IsOcean(touch.type))
                         {
                             item.type = CellType.Land | CellType.Coast;
                             break;
@@ -213,11 +217,14 @@ public class GenerateVoronoi : MonoBehaviour
             }
             else
             {
-                voronoiWrapper.CentersLookup[center].type = CellType.Land | CellType.Coast;
-                voronoiWrapper.CentersLookup[center].gameobject.GetComponent<MeshRenderer>().material = land;
+                voronoiWrapper.CentersLookup[center].type = CellType.Land;
                 foreach (var item in voronoiWrapper.CentersLookup[center].corners)
                 {
-                    item.type = CellType.Land;
+                    //If old corner CellType is Ocean, then set it to Land
+                    if (IsOcean(item.type))
+                    {
+                        item.type = CellType.Land;
+                    }
                 }
             }
         }
@@ -342,15 +349,22 @@ public class GenerateVoronoi : MonoBehaviour
         {
             item.riverVolume = 0;
         }
+        //Must reset river property before creating river seperately, otherwise the corner with river added will be reset,
+        //even it is newly added in current loop
         foreach (var item in voronoiWrapper.CornersLookup.Values)
         {
+            //reset every corner's River property
             if ((item.type & CellType.River) > 0)
             {
-                item.type -= CellType.River;
+                item.type ^= CellType.River;
             }
+        }
+        foreach (var item in voronoiWrapper.CornersLookup.Values)
+        {
+
             if (item.elevation > 6)
             {
-                if (UnityEngine.Random.Range(0f, 1f) > 0.9f)
+                if (UnityEngine.Random.Range(0f, 1f) > 0.95f)
                 {
                     CreateRiver(item);
                 }
@@ -410,26 +424,118 @@ public class GenerateVoronoi : MonoBehaviour
             foreach (var item in corner.adjacents)
             {
                 float newMoisture = 0.9f * corner.moisture;
-                if (newMoisture > item.moisture && newMoisture>0.8f)
+                if (newMoisture > item.moisture/* && newMoisture>0.5f*/)
                 {
                     item.moisture = newMoisture;
                     corners.Enqueue(item);
                 }
             }
         }
-
+    }
+    private void RefreshCellMoisture()
+    {
+        foreach (var item in voronoiWrapper.CentersLookup.Values)
+        {
+            float moisture = 0;
+            foreach (var corner in item.corners)
+            {
+                moisture += corner.moisture;
+            }
+            item.moisture = moisture / item.corners.Count;
+        }
     }
 
+    List<List<CellType>> CellTypeHelper = new List<List<CellType>>()
+    {
+        new List<CellType>(){
+            CellType.SubTropicalDesert,
+            CellType.GrassLand,
+            CellType.TropicalSeasonalForest,
+            CellType.TropicalSeasonalForest, 
+            CellType.TropicalRainforest, 
+            CellType.TropicalRainforest 
+        },
+        new List<CellType>(){
+            CellType.TemperateDesert,
+            CellType.GrassLand,
+            CellType.GrassLand,
+            CellType.TemperateDeciduousForest,
+            CellType.TemperateDeciduousForest,
+            CellType.TemperateRainforest
+        },
+        new List<CellType>(){
+            CellType.TemperateDesert,
+            CellType.TemperateDesert,
+            CellType.ShrubLand,
+            CellType.ShrubLand,
+            CellType.Taiga,
+            CellType.Taiga
+        },
+        new List<CellType>(){
+            CellType.Scorched,
+            CellType.Bare,
+            CellType.Tundra,
+            CellType.Snow,
+            CellType.Snow,
+            CellType.Snow
+        }
+    };
+
+    private void RefreshLandCellBiomes()
+    {
+        foreach (var item in voronoiWrapper.CentersLookup.Values)
+        {
+            item.type = ResetCellType(item.type);
+            if (!IsOcean(item.type))
+            {
+                int elevation = (int)((item.elevation) * CellTypeHelper.Count / 10);
+                if (elevation > CellTypeHelper.Count - 1)
+                {
+                    elevation = CellTypeHelper.Count - 1;
+                }
+                int moisture = (int)(item.moisture * CellTypeHelper[0].Count);
+                if (moisture > CellTypeHelper[0].Count - 1)
+                {
+                    moisture = CellTypeHelper[0].Count - 1;
+                }
+                //Make Coast cells as SubTropicalDesert in default
+                CellType biomes;
+                if (IsCoast(item.type))
+                {
+                    item.type |= CellType.SubTropicalDesert;
+                }
+                else if (IsLake(item.type))
+                {
+                    item.type |= CellType.Lake;
+                }
+                else
+                {
+                    item.type |= CellTypeHelper[elevation][moisture];
+                }
+                biomes = GetBiomes(item.type);
+                item.gameobject.GetComponent<MeshRenderer>().material = cellMaterialData.FindMaterial(biomes);
+            }
+            else
+            {
+                item.gameobject.GetComponent<MeshRenderer>().material = cellMaterialData.FindMaterial(CellType.Ocean);
+            }
+        }
+    }
+
+    private void DrawEffect()
+    {
+
+    }
     public void OnGUI()
     {
-        /*        foreach (var item in voronoiWrapper.CentersLookup.Values)
-                {
-                    Vector3 pos = Camera.main.WorldToScreenPoint(new Vector3(item.Point.x, -item.Point.y + height, 0));
-                    GUI.Label(new Rect(pos.x, pos.y, Screen.width, Screen.height), item.elevation.ToString());
-                }*/
-        foreach (var item in voronoiWrapper.CornersLookup.Values)
+/*        foreach (var item in voronoiWrapper.CentersLookup.Values)
         {
-            Vector3 pos = Camera.main.WorldToScreenPoint(new Vector3(item.point.x, -item.point.y + height, 0));
+            Vector3 pos = Camera.main.WorldToScreenPoint(new Vector3(item.Point.x, -item.Point.y + height, 0));
+            GUI.Label(new Rect(pos.x, pos.y, Screen.width, Screen.height), item.elevation.ToString());
+        }*/
+        foreach (var item in voronoiWrapper.CentersLookup.Values)
+        {
+            Vector3 pos = Camera.main.WorldToScreenPoint(new Vector3(item.Point.x, -item.Point.y + height, 0));
             GUI.Label(new Rect(pos.x, pos.y, Screen.width, Screen.height), item.moisture.ToString());
         }
     }
