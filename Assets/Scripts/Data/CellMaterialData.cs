@@ -7,7 +7,7 @@ using UnityEngine;
 public class CellMaterialData : ScriptableObject
 {
     public List<CellMaterialWrapper> CellMaterials;
-    public Material FindMaterial(CellType type)
+    public Material FindMaterial(BiomeType type)
     {
         foreach (var item in CellMaterials)
         {
@@ -25,8 +25,8 @@ public class CellMaterialData : ScriptableObject
 public class CellMaterialWrapper
 {
     [SerializeField]
-    private CellType m_type;
-    public CellType Type { get => m_type; }
+    private BiomeType m_type;
+    public BiomeType Type { get => m_type; }
     [SerializeField]
     private Material m_material;
     public Material Mat { get => m_material; }

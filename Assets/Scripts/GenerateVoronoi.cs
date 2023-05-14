@@ -32,6 +32,25 @@ public enum CellType
     Lake = 524288,
 
 }
+public enum BiomeType
+{
+    //Advanced Biomes
+    Ocean = 32,
+    SubTropicalDesert = 64,
+    TemperateDesert = 128,
+    Scorched = 256,
+    Bare = 512,
+    Tundra = 1024,
+    GrassLand = 2048,
+    ShrubLand = 4096,
+    TropicalSeasonalForest = 8192,
+    TemperateDeciduousForest = 16384,
+    TropicalRainforest = 32768,
+    TemperateRainforest = 65536,
+    Taiga = 131072,
+    Snow = 262144,
+    Lake = 524288,
+}
 public class GenerateVoronoi : MonoBehaviour
 {
     [SerializeField]
@@ -341,6 +360,7 @@ public class GenerateVoronoi : MonoBehaviour
         {
             return corner1.elevation.CompareTo(corner2.elevation);
         });
+
         for (int i = 0; i < landcorners.Count; i++)
         {
             float y = (float)i / (float)(landcorners.Count - 1);
@@ -479,39 +499,39 @@ public class GenerateVoronoi : MonoBehaviour
     }
 
     //Create a two dimention array to store the CellType for the specific elevation and moisture
-    List<List<CellType>> CellTypeHelper = new List<List<CellType>>()
+    List<List<BiomeType>> CellTypeHelper = new List<List<BiomeType>>()
     {
-        new List<CellType>(){
-            CellType.SubTropicalDesert,
-            CellType.GrassLand,
-            CellType.TropicalSeasonalForest,
-            CellType.TropicalSeasonalForest, 
-            CellType.TropicalRainforest, 
-            CellType.TropicalRainforest 
+        new List<BiomeType>(){
+            BiomeType.SubTropicalDesert,
+            BiomeType.GrassLand,
+            BiomeType.TropicalSeasonalForest,
+            BiomeType.TropicalSeasonalForest,
+            BiomeType.TropicalRainforest,
+            BiomeType.TropicalRainforest 
         },
-        new List<CellType>(){
-            CellType.TemperateDesert,
-            CellType.GrassLand,
-            CellType.GrassLand,
-            CellType.TemperateDeciduousForest,
-            CellType.TemperateDeciduousForest,
-            CellType.TemperateRainforest
+        new List<BiomeType>(){
+            BiomeType.TemperateDesert,
+            BiomeType.GrassLand,
+            BiomeType.GrassLand,
+            BiomeType.TemperateDeciduousForest,
+            BiomeType.TemperateDeciduousForest,
+            BiomeType.TemperateRainforest
         },
-        new List<CellType>(){
-            CellType.TemperateDesert,
-            CellType.TemperateDesert,
-            CellType.ShrubLand,
-            CellType.ShrubLand,
-            CellType.Taiga,
-            CellType.Taiga
+        new List<BiomeType>(){
+            BiomeType.TemperateDesert,
+            BiomeType.TemperateDesert,
+            BiomeType.ShrubLand,
+            BiomeType.ShrubLand,
+            BiomeType.Taiga,
+            BiomeType.Taiga
         },
-        new List<CellType>(){
-            CellType.Scorched,
-            CellType.Bare,
-            CellType.Tundra,
-            CellType.Snow,
-            CellType.Snow,
-            CellType.Snow
+        new List<BiomeType>(){
+            BiomeType.Scorched,
+            BiomeType.Bare,
+            BiomeType.Tundra,
+            BiomeType.Snow,
+            BiomeType.Snow,
+            BiomeType.Snow
         }
     };
 
@@ -521,7 +541,7 @@ public class GenerateVoronoi : MonoBehaviour
     {
         foreach (var item in voronoiWrapper.CentersLookup.Values)
         {
-            item.type = ResetCellType(item.type);
+            item.biomeType = 0;
             if (!IsOcean(item.type))
             {
                 int elevation = (int)((item.elevation) * CellTypeHelper.Count/* / 10*/);
@@ -535,26 +555,26 @@ public class GenerateVoronoi : MonoBehaviour
                     moisture = CellTypeHelper[0].Count - 1;
                 }
                 //Make Coast cells as SubTropicalDesert in default
-                CellType biomes;
+                BiomeType biomes;
                 if (IsCoast(item.type))
                 {
-                    item.type |= CellType.SubTropicalDesert;
+                    item.biomeType |= BiomeType.SubTropicalDesert;
                 }
                 //Make Lake cells as Lake in default
                 else if (IsLake(item.type))
                 {
-                    item.type |= CellType.Lake;
+                    item.biomeType |= BiomeType.Lake;
                 }
                 else
                 {
-                    item.type |= CellTypeHelper[elevation][moisture];
+                    item.biomeType |= CellTypeHelper[elevation][moisture];
                 }
-                biomes = GetBiomes(item.type);
+                biomes = item.biomeType;
                 item.gameobject.GetComponent<MeshRenderer>().material = cellMaterialData.FindMaterial(biomes);
             }
             else
             {
-                item.gameobject.GetComponent<MeshRenderer>().material = cellMaterialData.FindMaterial(CellType.Ocean);
+                item.gameobject.GetComponent<MeshRenderer>().material = cellMaterialData.FindMaterial(BiomeType.Ocean);
             }
         }
     }

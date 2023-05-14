@@ -41,5 +41,5 @@ MonoBehaviour:
     m_material: {fileID: 2100000, guid: 7b64f8b59ecba65438da09f68526b9f8, type: 2}
   - m_type: 524288
     m_material: {fileID: 2100000, guid: a2e9e6e7315f02547961e293263d11e9, type: 2}
-  - m_type: 4
+  - m_type: 32
     m_material: {fileID: 2100000, guid: 3331f78e9341bdc4fb40616ea8633a81, type: 2}

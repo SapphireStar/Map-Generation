@@ -9,6 +9,7 @@ public class CenterWrapper
 
     public Vector2f Point;
     public CellType type;
+    public BiomeType biomeType;
     public string biome;
     public float elevation;
     public float moisture;
@@ -37,6 +38,7 @@ public class EdgeWrapper
     public CornerWrapper v1;
     public Vector2f midpoint;// halfway between v0,v1
     public int riverVolume;// volume of water, or 0
+    public List<Vector2> noisyPoints;
 
     public EdgeWrapper(int index, Vector2f midpoint)
     {
@@ -50,6 +52,7 @@ public class CornerWrapper
 
     public Vector2f point;
     public CellType type;
+    public BiomeType biomeType;
     public string biome;
     public float elevation;
     public float moisture;
