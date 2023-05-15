@@ -35,6 +35,20 @@ public class VoronoiDiagramWrapper
         InitializeCenters();
         InitializeCorners();
         InitializeEdges();
+        int d0count = 0;
+        int d1count = 0;
+        foreach (var item in EdgesLookup.Values)
+        {
+            if (item.d0 == null)
+            {
+                d0count++;
+            }
+            if (item.d1 == null)
+            {
+                d1count++;
+            }
+        }
+        Debug.Log(d0count+" "+d1count);
     }
     private void InitializeVoronoi()
     {
@@ -105,8 +119,8 @@ public class VoronoiDiagramWrapper
             {
                 //traverse the corners around the center, check whether there are duplicated corners,
                 //delete duplicated corners, and add the corner to both current center and the traversed center
-                if (Mathf.Abs(nCorners.point.x - corner.x) < 1e-6
-                && Mathf.Abs(nCorners.point.y - corner.y) < 1e-6)
+                if (Mathf.Abs(nCorners.point.x - corner.x) < 1e-4
+                && Mathf.Abs(nCorners.point.y - corner.y) < 1e-4)
                 {
                     nCorners.touches.Add(center);
                     center.corners.Add(nCorners);

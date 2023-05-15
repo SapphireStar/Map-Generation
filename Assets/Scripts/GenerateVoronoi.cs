@@ -104,7 +104,7 @@ public class GenerateVoronoi : MonoBehaviour
             {
                 list.Add(new Vector3(center.corners[j].point.x, center.corners[j].point.y, 0));
             }
-            go.GetComponent<MeshFilter>().mesh = CreateMesh(list.ToArray());
+            go.GetComponent<MeshFilter>().mesh =  CreateMesh(list.ToArray());
             //await UniTask.Delay(25, false, PlayerLoopTiming.Update, this.GetCancellationTokenOnDestroy());
         }
 
@@ -163,6 +163,7 @@ public class GenerateVoronoi : MonoBehaviour
         AssignElevation();
         AssignMoisture();
         AssignBiomes();
+        AssignPostProcess();
 
         DrawEffect();
     }
@@ -186,6 +187,13 @@ public class GenerateVoronoi : MonoBehaviour
     {
         Debug.Log("Assigning Biomes");
         RefreshLandCellBiomes();
+    }
+
+    private void AssignPostProcess()
+    {
+        Debug.Log("Assigning PostProcess");
+        RefreshNoisyEdge();
+        RefreshCellMesh();
     }
     private void UpdateCorners(CenterWrapper center, CellType type)
     {
@@ -579,6 +587,44 @@ public class GenerateVoronoi : MonoBehaviour
         }
     }
 
+    private void RefreshNoisyEdge()
+    {
+        //Create noisyEdges
+        GenerateNoisyEdges.BuildNoisyEdge(voronoiWrapper.EdgesLookup, 0.5f);
+    }
+
+    private void RefreshCellMesh()
+    {
+        foreach (var item in voronoiWrapper.CentersLookup.Values)
+        {
+            if(!IsOcean(item.type))
+            {
+                List<Vector3> points = new List<Vector3>();
+                foreach (var point in CreateNoisyEdgeMesh(item))
+                {
+                    points.Add(point);
+                }
+                item.gameobject.GetComponent<MeshFilter>().mesh = CreateMesh(points.ToArray());
+            }
+        }
+    }
+    private List<Vector2> CreateNoisyEdgeMesh(CenterWrapper center)
+    {
+        List<Vector2> points = new List<Vector2>();
+        for (int i = 0; i < center.corners.Count-1; i++)
+        {
+            Vector2f edge = new Vector2f((center.corners[i].point.x + center.corners[i + 1].point.x) / 2,
+                (center.corners[i].point.y + center.corners[i + 1].point.y) / 2);
+            points.AddRange(voronoiWrapper.EdgesLookup[edge].noisyPoints);
+        }
+
+        //Close the circle
+        Vector2f lastedge = new Vector2f((center.corners[center.corners.Count-1].point.x + center.corners[0].point.x) / 2,
+    (center.corners[center.corners.Count - 1].point.y + center.corners[0].point.y) / 2);
+        points.AddRange(voronoiWrapper.EdgesLookup[lastedge].noisyPoints);
+
+        return points;
+    }
     private void DrawEffect()
     {
 
@@ -590,6 +636,11 @@ public class GenerateVoronoi : MonoBehaviour
             Vector3 pos = Camera.main.WorldToScreenPoint(new Vector3(item.Point.x, -item.Point.y + height, 0));
             GUI.Label(new Rect(pos.x, pos.y, Screen.width, Screen.height), item.elevation.ToString());
         }
+        /*        foreach (var item in voronoiWrapper.CornersLookup.Values)
+                {
+                    Vector3 pos = Camera.main.WorldToScreenPoint(new Vector3(item.point.x, -item.point.y + height, 0));
+                    GUI.Label(new Rect(pos.x, pos.y, Screen.width, Screen.height), item.elevation.ToString());
+                }*/
         /*        foreach (var item in voronoiWrapper.CentersLookup.Values)
                 {
                     Vector3 pos = Camera.main.WorldToScreenPoint(new Vector3(item.Point.x, -item.Point.y + height, 0));
@@ -601,17 +652,26 @@ public class GenerateVoronoi : MonoBehaviour
     {
         Gizmos.color = Color.white;
         if (voronoiWrapper == null) return;
-        foreach (var center in voronoiWrapper.CentersLookup.Values)
+/*        foreach (var center in voronoiWrapper.CentersLookup.Values)
         {
-            Gizmos.DrawSphere(new Vector3(center.Point.x, center.Point.y,0), 0.05f);
-            for (int i = 0; i < center.corners.Count-1; i++)
+            Gizmos.DrawSphere(new Vector3(center.Point.x, center.Point.y, 0), 0.05f);
+            for (int i = 0; i < center.corners.Count - 1; i++)
             {
                 Gizmos.DrawLine(new Vector3(center.corners[i].point.x, center.corners[i].point.y, 0),
-                                new Vector3(center.corners[i+1].point.x, center.corners[i+1].point.y, 0));
+                                new Vector3(center.corners[i + 1].point.x, center.corners[i + 1].point.y, 0));
             }
             Gizmos.DrawLine(new Vector3(center.corners[0].point.x, center.corners[0].point.y, 0),
                 new Vector3(center.corners[center.corners.Count - 1].point.x, center.corners[center.corners.Count - 1].point.y, 0));
+        }*/
+
+        foreach (var item in voronoiWrapper.EdgesLookup.Values)
+        {
+            for (int i = 0; i < item.noisyPoints.Count - 1; i++)
+            {
+                Gizmos.DrawLine(item.noisyPoints[i], item.noisyPoints[i + 1]);
+            }
         }
+
         Gizmos.color = Color.red;
         if (landedges.Count > 0)
         {

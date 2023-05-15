@@ -44,6 +44,7 @@ public class EdgeWrapper
     {
         this.index = index;
         this.midpoint = midpoint;
+        noisyPoints = new List<Vector2>();
     }
 }
 public class CornerWrapper
