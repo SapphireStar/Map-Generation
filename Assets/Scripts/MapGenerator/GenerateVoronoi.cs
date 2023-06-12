@@ -163,7 +163,7 @@ public class GenerateVoronoi : MonoBehaviour
         AssignElevation();
         AssignMoisture();
         AssignBiomes();
-        AssignPostProcess();
+        //AssignPostProcess();
 
         DrawEffect();
     }
