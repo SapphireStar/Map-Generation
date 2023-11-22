@@ -56,8 +56,8 @@ public class VoronoiDiagramWrapper
         {
             for (int j = 0; j < resolutionY; j++)
             {
-                Vector2f point = new Vector2f(UnityEngine.Random.Range((float)i * (width / resolutionX), (float)(i + 1) * (width / resolutionX)),
-                                        UnityEngine.Random.Range((float)j * (height / resolutionY), (float)(j + 1) * (height / resolutionY)));
+                Vector2f point = new Vector2f(UnityEngine.Random.Range((float)i * ((float)width / (float)resolutionX), (float)(i + 1) * ((float)width / (float)resolutionX)),
+                                        UnityEngine.Random.Range((float)j * ((float)height / (float)resolutionY), (float)(j + 1) * ((float)height / (float)resolutionY)));
                 centers.Add(point);
             }
         }
@@ -90,7 +90,6 @@ public class VoronoiDiagramWrapper
         {
             List<Vector2f> centerCorners = voronoi.Region(center.Point);
             List<Vector2f> neighbours = voronoi.NeighborSitesForSite(center.Point);
-
             //check duplicated corners, if corner duplicated, then not create new cornerwrapper,
             //instead, add old cornerwrapper to current center, and add current centerwrapper to cornerwrapper's touches
             for (int i = 0; i < centerCorners.Count; i++)
@@ -104,7 +103,8 @@ public class VoronoiDiagramWrapper
                     newCorner.index = Corners.Count;
                     this.Corners.Add(centerCorners[i]);
                     newCorner.touches.Add(center);
-                    center.corners.Add(newCorner);
+                    if (!checkcorner(newCorner.point, center))
+                        center.corners.Add(newCorner);
                 }
             }
 
@@ -122,6 +122,7 @@ public class VoronoiDiagramWrapper
                 if (Mathf.Abs(nCorners.point.x - corner.x) < 1e-4
                 && Mathf.Abs(nCorners.point.y - corner.y) < 1e-4)
                 {
+                    checkcorner(nCorners.point, center);
                     nCorners.touches.Add(center);
                     center.corners.Add(nCorners);
                     return true;
@@ -130,7 +131,19 @@ public class VoronoiDiagramWrapper
         }
         return false;
     }
-
+    private bool checkcorner(Vector2f corner, CenterWrapper center)
+    {
+        foreach (var item in center.corners)
+        {
+            float result1 = Mathf.Abs(item.point.x - corner.x);
+            float result2 = Mathf.Abs(item.point.y - corner.y);
+            if (result1 < 1e-4 && result2<1e-4)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
     private CornerWrapper CreateCorner(Vector2f point)
     {
         CornerWrapper wrapper = new CornerWrapper(point);

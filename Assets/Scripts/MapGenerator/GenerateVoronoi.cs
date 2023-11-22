@@ -78,11 +78,15 @@ public class GenerateVoronoi : MonoBehaviour
     [SerializeField]
     private CellMaterialData cellMaterialData;
 
-    VoronoiDiagramWrapper voronoiWrapper;
-    void Start()
+    public VoronoiDiagramWrapper voronoiWrapper;
+    public void Awake()
     {
         voronoiWrapper = new VoronoiDiagramWrapper(resolutionX, resolutionY, width, height, LloydrelaxationInteration);
         DrawVoronoiDiagram();
+    }
+    void Start()
+    {
+
     }
     private void DrawVoronoiDiagram()
     {
@@ -163,7 +167,7 @@ public class GenerateVoronoi : MonoBehaviour
         AssignElevation();
         AssignMoisture();
         AssignBiomes();
-        AssignPostProcess();
+        //AssignPostProcess();
 
         DrawEffect();
     }
@@ -193,7 +197,7 @@ public class GenerateVoronoi : MonoBehaviour
     {
         Debug.Log("Assigning PostProcess");
         RefreshNoisyEdge();
-        RefreshCellMesh();
+        //RefreshCellMesh();
     }
     private void UpdateCorners(CenterWrapper center, CellType type)
     {
@@ -652,7 +656,7 @@ public class GenerateVoronoi : MonoBehaviour
     {
         Gizmos.color = Color.white;
         if (voronoiWrapper == null) return;
-/*        foreach (var center in voronoiWrapper.CentersLookup.Values)
+        foreach (var center in voronoiWrapper.CentersLookup.Values)
         {
             Gizmos.DrawSphere(new Vector3(center.Point.x, center.Point.y, 0), 0.05f);
             for (int i = 0; i < center.corners.Count - 1; i++)
@@ -662,15 +666,15 @@ public class GenerateVoronoi : MonoBehaviour
             }
             Gizmos.DrawLine(new Vector3(center.corners[0].point.x, center.corners[0].point.y, 0),
                 new Vector3(center.corners[center.corners.Count - 1].point.x, center.corners[center.corners.Count - 1].point.y, 0));
-        }*/
-
-        foreach (var item in voronoiWrapper.EdgesLookup.Values)
-        {
-            for (int i = 0; i < item.noisyPoints.Count - 1; i++)
-            {
-                Gizmos.DrawLine(item.noisyPoints[i], item.noisyPoints[i + 1]);
-            }
         }
+
+        /*        foreach (var item in voronoiWrapper.EdgesLookup.Values)
+                {
+                    for (int i = 0; i < item.noisyPoints.Count - 1; i++)
+                    {
+                        Gizmos.DrawLine(item.noisyPoints[i], item.noisyPoints[i + 1]);
+                    }
+                }*/
 
         Gizmos.color = Color.red;
         if (landedges.Count > 0)
